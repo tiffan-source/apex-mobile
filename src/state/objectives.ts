@@ -70,7 +70,8 @@ export function useObjectives(): ObjectivesView {
   const user = useCurrentUser();
   const query = useQuery({
     queryKey: queryKeys.objectives(user?.id ?? null),
-    queryFn: async () => unwrap(await objectives.loader.load()),
+    // Un chargement remplacé par un autre (rechargement demandé, objectifs changés par Akari) s'arrête là.
+    queryFn: async ({ signal }) => unwrap(await objectives.loader.load(signal)),
     enabled: user !== null,
     // Une copie qui ne contient que des gestes optimistes n'a encore jamais été lue : on la lit tout de suite.
     refetchOnMount: (current) => (current.state.data?.loaded ? true : 'always'),

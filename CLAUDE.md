@@ -55,9 +55,13 @@ Layers in `src/`, enforced by `no-restricted-imports` in `eslint.config.js`:
 - `composition/` — the composition root (`assembleServices`), used by production and tests alike.
 
 Reads go through TanStack Query (one flat snapshot of objectives per user); **writes never use
-`useMutation`**: they go through `ObjectiveCommands` → `WriteQueue` (one at a time, temporary ids linked
-to real ids inside the queued operation, rollback that never undoes a newer gesture), as in the web
-client's stores. No toasts: `announcements.announce()` for screen readers, `announcements.report()` for
+`useMutation`**: they go through `ObjectiveCommands` → `WriteQueue`, as in the web client's stores — one
+at a time, each reconciled inside its queued operation (temporary id linked to the real id, cache fixed)
+before the next one starts. A rollback restores what the server accepted (`PendingChanges`: the state
+before the first pending gesture plus accepted changes), never a refused gesture's value. Reads queued
+with `read()` don't count as gestures. `WriteQueue.close()` at sign-out drops what is still waiting, and
+a late response of a closed session reconciles and reports nothing. Only a server refusal (401/400 on
+refresh) ends the session; transient failures keep it. No toasts: `announcements.announce()` for screen readers, `announcements.report()` for
 the Akari note shown at the top of screens. Never show a server error message; map its code to a French
 sentence (`domain/objectives/messages.ts`, `domain/session/auth.ts`).
 

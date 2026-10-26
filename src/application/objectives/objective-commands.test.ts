@@ -1,8 +1,9 @@
 import { QUADRANTS } from '@empreinte-studio/noyau';
 import { quadrantOf } from '@/domain/objectives/eisenhower';
 import { FAILURE_REPORTS, SUCCESS_ANNOUNCEMENTS } from '@/domain/objectives/messages';
-import type { ObjectivesSnapshot } from '@/domain/objectives/objective';
+import type { ObjectivesSnapshot, Task } from '@/domain/objectives/objective';
 import { isTemporaryId } from '@/domain/objectives/snapshot';
+import { CLIENT_ERRORS } from '@/domain/shared/result';
 import { voiceIssues } from '@/domain/shared/voice';
 import { InMemoryCache, RecordingAnnouncer } from '@/testing/fakes';
 import { InMemoryObjectivesGateway, flush } from '@/testing/in-memory-objectives-gateway';
@@ -195,6 +196,139 @@ describe('ObjectiveCommands', () => {
   });
 });
 
+describe('un retour en arrière rend ce que le serveur a accepté', () => {
+  const p1 = (t: ReturnType<typeof setup>) => t.snapshot().tasks.find((task) => task.id === 'p1');
+  const serverP1 = (t: ReturnType<typeof setup>) => t.gateway.tasks.find((task) => task.id === 'p1');
+
+  it('cocher puis décocher hors connexion : le pas revient à ce qu’a le serveur', async () => {
+    const t = setup(seedSemi);
+    await t.load();
+    t.gateway.failNext('setTaskDone', 'NETWORK_UNREACHABLE');
+    t.gateway.failNext('setTaskDone', 'NETWORK_UNREACHABLE');
+    await Promise.all([t.commands.setTaskDone('p1', true), t.commands.setTaskDone('p1', false)]);
+    expect(serverP1(t)?.done).toBe(false);
+    expect(p1(t)?.done).toBe(false);
+    expect(t.announcements.report$.get()).toBe(FAILURE_REPORTS.toggleTask);
+  });
+
+  it('deux déplacements refusés : le pas reste dans son quadrant', async () => {
+    const t = setup(seedSemi);
+    await t.load();
+    t.gateway.failNext('editTask');
+    t.gateway.failNext('editTask');
+    await Promise.all([
+      t.commands.moveTaskToQuadrant('p1', 'planifier'),
+      t.commands.moveTaskToQuadrant('p1', 'laisser-filer'),
+    ]);
+    expect(quadrantOf(p1(t) as Task)).toBe('maintenant');
+    expect(quadrantOf(serverP1(t) as Task)).toBe('maintenant');
+  });
+
+  it('deux modifications refusées : l’objectif garde son nom', async () => {
+    const t = setup(seedSemi);
+    await t.load();
+    t.gateway.failNext('editObjective');
+    t.gateway.failNext('editObjective');
+    await Promise.all([
+      t.commands.editObjective('semi', { title: 'B' }),
+      t.commands.editObjective('semi', { title: 'C' }),
+    ]);
+    expect(t.snapshot().objectives.find((objective) => objective.id === 'semi')?.title).toBe(
+      'Courir un semi-marathon',
+    );
+  });
+
+  it('le premier geste accepté, le second refusé : le pas montre le premier', async () => {
+    const t = setup(seedSemi);
+    await t.load();
+    t.gateway.failNext('setTaskDone', 'UNKNOWN_ERROR', 1);
+    await Promise.all([t.commands.setTaskDone('p1', true), t.commands.setTaskDone('p1', false)]);
+    expect(serverP1(t)?.done).toBe(true);
+    expect(p1(t)?.done).toBe(true);
+  });
+
+  it('une modification refusée n’est pas enregistrée au passage par un déplacement accepté', async () => {
+    const t = setup(seedSemi);
+    await t.load();
+    t.gateway.failNext('editTask');
+    const renamed = t.commands.editTask('p1', {
+      title: 'Courir 6 km',
+      objectiveId: 'endurance',
+      importance: 4,
+      urgency: 4,
+    });
+    const moved = t.commands.moveTaskToQuadrant('p1', 'planifier');
+    await Promise.all([renamed, moved]);
+    expect(serverP1(t)).toMatchObject({ title: 'Courir 5 km', importance: 4, urgency: 2 });
+    expect(p1(t)).toMatchObject({ title: 'Courir 5 km', importance: 4, urgency: 2 });
+  });
+
+  it('un pas rangé sur une étape dont la création n’aboutit pas revient dans son étape', async () => {
+    const t = setup(seedSemi);
+    await t.load();
+    t.gateway.failNext('addStage');
+    const stage = t.commands.addStage('semi', 'Mental');
+    const pendingStage = t.snapshot().objectives.at(-1)?.id as string;
+    const moved = t.commands.editTask('p1', {
+      title: 'Courir 5 km',
+      objectiveId: pendingStage,
+      importance: 4,
+      urgency: 4,
+    });
+    await Promise.all([stage, moved]);
+    expect(p1(t)?.objectiveId).toBe('endurance');
+    expect(serverP1(t)?.objectiveId).toBe('endurance');
+    expect(t.gateway.calls).not.toContain('editTask');
+    expect(t.announcements.report$.get()).toBe(FAILURE_REPORTS.addStage);
+  });
+});
+
+describe('la fin d’une session', () => {
+  it('un geste qui attend dans la file ne part plus, et ne dit rien', async () => {
+    const t = setup(seedSemi);
+    await t.load();
+    t.gateway.hold();
+    const inFlight = t.commands.setTaskDone('p1', true);
+    const waiting = t.commands.createObjective({ title: 'Projet de la session fermée' });
+    await flush();
+    t.writes.close();
+    t.commands.forget();
+    await t.gateway.release();
+    expect(await waiting).toBeNull();
+    await inFlight;
+    expect(t.gateway.calls).toEqual(['list', 'setTaskDone']);
+    expect(t.gateway.objectives.map((objective) => objective.title)).not.toContain(
+      'Projet de la session fermée',
+    );
+    // La réponse arrivée après la fermeture ne réconcilie rien et ne s'annonce pas.
+    expect(t.announcer.said).toEqual([]);
+    expect(t.announcements.report$.get()).toBeNull();
+  });
+
+  it('un chargement qui attend son tour à la fermeture rend « plus de session »', async () => {
+    const t = setup(seedSemi);
+    await t.load();
+    t.gateway.hold();
+    const inFlight = t.commands.setTaskDone('p1', true);
+    const loading = t.loader.load();
+    await flush();
+    t.writes.close();
+    await t.gateway.release();
+    await inFlight;
+    const result = await loading;
+    expect(!result.success && result.error.code).toBe(CLIENT_ERRORS.signedOut);
+    expect(t.gateway.calls.filter((call) => call === 'list')).toHaveLength(1);
+  });
+
+  it('une session suivante ne connaît pas les ids de la précédente', async () => {
+    const t = setup(seedSemi);
+    await t.load();
+    t.writes.link('temp-id-x', 'o-9');
+    t.writes.close();
+    expect(t.writes.resolve('temp-id-x')).toBe('temp-id-x');
+  });
+});
+
 describe('déplacer un pas vers un quadrant : les 16 cas, niveaux de 1 à 5', () => {
   it('arrive toujours dans le quadrant demandé, et revient en arrière si l’enregistrement n’aboutit pas', async () => {
     for (const from of QUADRANTS) {
@@ -269,6 +403,27 @@ describe('ObjectivesLoader', () => {
     const result = await t.load();
     expect(result.success).toBe(false);
     expect(t.snapshot().objectives).toHaveLength(2);
+  });
+
+  it('deux chargements en même temps lisent chacun une fois : ils ne se relancent pas l’un l’autre', async () => {
+    const t = setup(seedSemi);
+    await t.load();
+    const [first, second] = await Promise.all([t.loader.load(), t.loader.load()]);
+    expect(first.success && second.success).toBe(true);
+    expect(t.gateway.calls.filter((call) => call === 'list')).toHaveLength(3);
+  });
+
+  it('un chargement abandonné ne relit pas la base, même si un geste l’a dépassé', async () => {
+    const t = setup(seedSemi);
+    await t.load();
+    const abandoned = new AbortController();
+    t.gateway.hold();
+    const loading = t.loader.load(abandoned.signal);
+    const done = t.commands.setTaskDone('p1', true);
+    abandoned.abort();
+    await t.gateway.release();
+    await Promise.all([loading, done]);
+    expect(t.gateway.calls.filter((call) => call === 'list')).toHaveLength(2);
   });
 });
 

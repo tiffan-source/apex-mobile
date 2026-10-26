@@ -20,12 +20,19 @@ mutations de TanStack Query partent en parallèle et ne savent pas faire suivre 
   qui n'aboutit pas.
 - **Les écritures passent par `ObjectiveCommands` et la `WriteQueue`**, reprises du client web : le geste
   change la copie locale (dans le cache de TanStack Query, par le port `ObjectivesCache`), s'écrit dans
-  la file, puis se réconcilie ou revient en arrière, sans défaire un geste plus récent.
-- **Le chargement prend place dans la file** et relit la base si un geste est passé derrière lui.
-- **L'id définitif d'une création est retenu dans l'opération mise en file** (`linked()`), avant que la
-  file passe à l'écriture suivante.
-- **Akari est interrogé chaque seconde** pendant un tour (il n'y a pas de flux) ; un ajout accepté est
-  suivi jusqu'à la fin de l'outil (`AkariWritesWatcher`), puis les objectifs sont relus.
+  la file, puis se réconcilie dès la réponse, dans la file même (id définitif retenu, copie corrigée)
+  avant que la file passe à l'écriture suivante.
+- **Un retour en arrière rend ce que le serveur a accepté** (`PendingChanges`) : quand le dernier geste
+  en route sur un élément est réglé, il montre l'état d'avant le premier geste plus les seuls changements
+  acceptés, jamais la valeur d'un geste refusé.
+- **Le chargement prend place dans la file** et relit la base si une écriture est passée derrière lui ;
+  les lectures ne comptent pas comme des gestes, et un chargement remplacé s'arrête.
+- **La file appartient à une session** : à sa fermeture, ce qui attend ne part plus, et une réponse
+  arrivée après ne réconcilie rien et ne dit rien.
+- **Akari est interrogé chaque seconde** pendant un tour (il n'y a pas de flux), sauf pendant un envoi :
+  l'état qu'il rend est le plus récent, et une lecture partie avant lui est abandonnée. Un ajout accepté
+  est suivi jusqu'à la fin de l'outil (`AkariWritesWatcher`), malgré une lecture passagèrement en échec,
+  puis les objectifs sont relus.
 - **Pas de toast** : une réussite est annoncée aux lecteurs d'écran, ce qui n'aboutit pas est signalé
   dans une note d'Akari (`AnnouncementCenter`), avec une phrase choisie par le code de l'erreur.
 

@@ -80,15 +80,21 @@ describe('la copie optimiste', () => {
     expect(keepOptimistic(loaded, undefined).objectives).toHaveLength(2);
   });
 
-  it('retire un objectif optimiste avec ses étapes et leurs pas', () => {
+  it('retire un objectif optimiste avec ses étapes et les pas créés dessus', () => {
     const before = snapshot(
       [objective('o'), objective('temp-id-n'), objective('temp-id-e', 'temp-id-n')],
-      [task('a', 'o'), task('b', 'temp-id-e'), task('c', 'temp-id-n')],
+      [task('a', 'o'), task('temp-id-b', 'temp-id-e'), task('temp-id-c', 'temp-id-n')],
     );
     const after = removeObjective(before, 'temp-id-n');
     expect(after.objectives.map((item) => item.id)).toEqual(['o']);
     expect(after.tasks.map((item) => item.id)).toEqual(['a']);
     expect(addTask(after, task('d', 'o')).tasks).toHaveLength(2);
+  });
+
+  it('garde un pas enregistré rangé sur une étape dont la création n’a pas abouti', () => {
+    // Son propre geste, refusé à son tour (l'étape n'existe pas), le ramène à sa place.
+    const before = snapshot([objective('o'), objective('temp-id-e', 'o')], [task('p1', 'temp-id-e')]);
+    expect(removeObjective(before, 'temp-id-e').tasks.map((item) => item.id)).toEqual(['p1']);
   });
 });
 

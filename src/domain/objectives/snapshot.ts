@@ -70,7 +70,11 @@ export function addObjective(snapshot: ObjectivesSnapshot, objective: Objective)
   return { ...snapshot, objectives: [...snapshot.objectives, objective] };
 }
 
-/** Retire un objectif optimiste, ses étapes directes et les pas posés dessus entre-temps. */
+/**
+ * Retire un objectif optimiste (sa création n'a pas abouti), ses étapes directes et les pas créés dessus
+ * entre-temps. Un pas déjà enregistré qu'on y avait rangé reste : le serveur l'a encore à son ancienne place,
+ * où son propre geste, refusé à son tour, le ramène.
+ */
 export function removeObjective(snapshot: ObjectivesSnapshot, objectiveId: string): ObjectivesSnapshot {
   const removed = new Set(
     snapshot.objectives
@@ -80,7 +84,7 @@ export function removeObjective(snapshot: ObjectivesSnapshot, objectiveId: strin
   return {
     ...snapshot,
     objectives: snapshot.objectives.filter((objective) => !removed.has(objective.id)),
-    tasks: snapshot.tasks.filter((task) => !removed.has(task.objectiveId)),
+    tasks: snapshot.tasks.filter((task) => !(removed.has(task.objectiveId) && isTemporaryId(task.id))),
   };
 }
 
@@ -88,6 +92,18 @@ export function replaceObjective(snapshot: ObjectivesSnapshot, objective: Object
   return {
     ...snapshot,
     objectives: snapshot.objectives.map((item) => (item.id === objective.id ? objective : item)),
+  };
+}
+
+/** Change un objectif ou une étape ; un id inconnu laisse la copie telle quelle. */
+export function updateObjective(
+  snapshot: ObjectivesSnapshot,
+  objectiveId: string,
+  change: (objective: Objective) => Objective,
+): ObjectivesSnapshot {
+  return {
+    ...snapshot,
+    objectives: snapshot.objectives.map((item) => (item.id === objectiveId ? change(item) : item)),
   };
 }
 

@@ -1,4 +1,5 @@
 import { isExecutingTool } from '@/domain/akari/assistant';
+import { CLIENT_ERRORS, isTransientFailure } from '@/domain/shared/result';
 import type { AssistantGateway } from '../ports/assistant-gateway';
 import { SYSTEM_TIMERS, type Timers } from '../ports/platform';
 
@@ -12,7 +13,8 @@ const MAX_POLLS = 120;
  * Ce qu'Akari ajoute avec l'accord de la personne (une étape, un pas) arrive sur l'arête au fil des ajouts
  * (cahier de migration d'Apex, § 5), comme `AkariWritesStore` du client web : il survit au départ de l'écran
  * Akari. À l'accord sur un outil d'écriture, le workflow passe à l'exécution de l'outil ; dès qu'il en sort,
- * l'écriture est faite et les objectifs sont rechargés, une fois.
+ * l'écriture est faite et les objectifs sont rechargés, une fois. Une lecture de l'état qui n'aboutit pas pour
+ * une raison passagère (réseau, serveur occupé) ne dit pas que l'outil a fini : on interroge encore.
  */
 export class AkariWritesWatcher {
   private readonly watched = new Map<string, unknown>();
@@ -53,8 +55,13 @@ export class AkariWritesWatcher {
     if (!this.watched.has(objectiveId)) return;
     const state = await this.deps.assistant.getState(objectiveId);
     if (!this.watched.has(objectiveId)) return;
-    const executing = state.success && isExecutingTool(state.data.value);
-    if (executing && attempt < MAX_POLLS) {
+    // Plus de session : rien à recharger pour personne.
+    if (!state.success && state.error.code === CLIENT_ERRORS.signedOut) {
+      this.watched.delete(objectiveId);
+      return;
+    }
+    const waiting = state.success ? isExecutingTool(state.data.value) : isTransientFailure(state.error);
+    if (waiting && attempt < MAX_POLLS) {
       this.poll(objectiveId, attempt + 1);
       return;
     }

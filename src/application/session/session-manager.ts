@@ -1,4 +1,4 @@
-import { isConnectivityFailure, ok, type Result } from '@/domain/shared/result';
+import { ok, type Failure, type Result } from '@/domain/shared/result';
 import { expiresSoon, type User } from '@/domain/session/user';
 import type { AccessTokenProvider, AuthGateway, Credentials, SignedIn } from '../ports/auth-gateway';
 import { SYSTEM_CLOCK, type Clock, type StoredSession, type TokenStore } from '../ports/platform';
@@ -8,6 +8,10 @@ import { ObservableValue } from '../shared/observable-value';
  * La session de la personne : l'ouvrir, la retrouver au lancement, la renouveler avant son échéance ou après un
  * refus du serveur, la fermer. Apex Brain est sans état (ADR 0003) : le client garde le jeton d'accès et celui
  * qui le renouvelle, dans le coffre de l'appareil.
+ *
+ * Seul un refus du serveur ferme la session : un renouvellement qui n'aboutit pas faute de réseau, parce que
+ * le serveur est indisponible ou reçoit trop de demandes, la laisse ouverte, et le prochain besoin d'un jeton
+ * réessaie. Une requête refusée n'est rejouée qu'avec un jeton de sa propre session.
  */
 
 export type SessionState =
@@ -22,13 +26,35 @@ export type SignUpOutcome = { readonly user: User; readonly awaitingConfirmation
 /** Le jeton se renouvelle une minute avant son échéance. */
 const RENEW_MARGIN_MS = 60_000;
 
+/** Après un renouvellement qui n'a pas abouti, le suivant attend un peu : le serveur limite ces demandes. */
+const RETRY_AFTER_MS = 5_000;
+
+/** Le serveur refuse le jeton de renouvellement (expiré, révoqué, illisible) : la session ne vaut plus. */
+function refusesSession(failure: Failure): boolean {
+  return (
+    failure.status === 401 ||
+    failure.status === 400 ||
+    failure.code === 'INVALID_SESSION' ||
+    failure.code === 'UNAUTHENTICATED'
+  );
+}
+
 export class SessionManager implements AccessTokenProvider {
   readonly state = new ObservableValue<SessionState>({ status: 'restoring' });
 
   private stored: StoredSession | null = null;
-  private refreshing: Promise<string | null> | null = null;
   /** Change à chaque ouverture ou fermeture de session : une réponse arrivée après est ignorée. */
   private generation = 0;
+  /** Les jetons d'accès de la session ouverte : le premier, puis ceux de ses renouvellements. */
+  private issued = new Set<string>();
+  /** Le renouvellement en cours, et la session qui l'a demandé. */
+  private refreshing: { readonly generation: number; readonly token: Promise<string | null> } | null = null;
+  /** L'instant du dernier renouvellement abouti, à l'horloge de l'appareil. */
+  private renewedAt: number | null = null;
+  /** L'instant du dernier renouvellement qui n'a pas abouti (réseau, serveur), à l'horloge de l'appareil. */
+  private failedAt: number | null = null;
+  /** Les écritures du coffre, dans l'ordre : une fermeture n'est jamais suivie d'une écriture plus ancienne. */
+  private vault: Promise<void> = Promise.resolve();
   private readonly endListeners = new Set<() => void>();
 
   constructor(
@@ -63,7 +89,7 @@ export class SessionManager implements AccessTokenProvider {
       this.state.set({ status: 'signed-out', ended: false });
       return;
     }
-    this.stored = stored;
+    this.begin(stored);
     this.state.set({ status: 'signed-in', user: stored.user });
     void this.verify();
   }
@@ -71,7 +97,7 @@ export class SessionManager implements AccessTokenProvider {
   async signIn(credentials: Credentials): Promise<Result<User>> {
     const result = await this.deps.auth.login(credentials);
     if (!result.success) return result;
-    this.generation += 1;
+    this.begin(result.data);
     await this.keep(result.data);
     return ok(result.data.user);
   }
@@ -82,7 +108,7 @@ export class SessionManager implements AccessTokenProvider {
     if (!result.success) return result;
     const { user, session } = result.data;
     if (!session) return ok({ user, awaitingConfirmation: true });
-    this.generation += 1;
+    this.begin({ user, session });
     await this.keep({ user, session });
     return ok({ user, awaitingConfirmation: false });
   }
@@ -97,13 +123,22 @@ export class SessionManager implements AccessTokenProvider {
   async accessToken(): Promise<string | null> {
     const stored = this.stored;
     if (!stored) return null;
-    if (!expiresSoon(stored.session, this.now(), RENEW_MARGIN_MS)) return stored.session.accessToken;
-    return this.refresh();
+    const now = this.now();
+    if (!expiresSoon(stored.session, now, RENEW_MARGIN_MS)) return stored.session.accessToken;
+    // Tout juste renouvelé, et déjà près de l'échéance à l'horloge de l'appareil : c'est l'horloge qui avance.
+    // Le jeton vaut encore pour le serveur, qui dira (401) quand il ne vaudra plus.
+    if (this.renewedAt !== null && now - this.renewedAt < RENEW_MARGIN_MS) return stored.session.accessToken;
+    const generation = this.generation;
+    const renewed = await this.refresh();
+    if (renewed) return renewed;
+    // Le renouvellement n'a pas abouti sans que le serveur ferme la session : le jeton actuel est tenté.
+    return generation === this.generation ? (this.stored?.session.accessToken ?? null) : null;
   }
 
   async renewAfterRejection(rejectedToken: string): Promise<string | null> {
     const stored = this.stored;
-    if (!stored) return null;
+    // Le jeton d'une session fermée depuis : sa requête ne repart jamais avec une autre session.
+    if (!stored || !this.issued.has(rejectedToken)) return null;
     // Une autre requête l'a déjà renouvelé : le nouveau jeton suffit.
     if (stored.session.accessToken !== rejectedToken) return stored.session.accessToken;
     return this.refresh();
@@ -120,10 +155,12 @@ export class SessionManager implements AccessTokenProvider {
       if (me.data.name !== user.name || me.data.email !== user.email) {
         await this.keep({ user: me.data, session: this.stored.session });
       }
-    } else if (me.error.status === 401) {
-      const renewed = await this.renewAfterRejection(token);
-      if (renewed) void this.verifyAgain(renewed, generation);
+      return;
     }
+    // Sans réseau, ou le serveur indisponible : la session reste, la prochaine requête la vérifiera.
+    if (me.error.status !== 401) return;
+    const renewed = await this.renewAfterRejection(token);
+    if (renewed && generation === this.generation) void this.verifyAgain(renewed, generation);
   }
 
   private async verifyAgain(token: string, generation: number): Promise<void> {
@@ -133,41 +170,71 @@ export class SessionManager implements AccessTokenProvider {
     else if (me.error.status === 401) await this.end(true);
   }
 
-  /** Un seul renouvellement à la fois : les requêtes qui attendent un jeton partagent le même. */
+  /**
+   * Un seul renouvellement à la fois par session : les requêtes qui attendent un jeton partagent le même. Rend
+   * le nouveau jeton, ou null s'il n'a pas abouti (la session reste ouverte, sauf si le serveur la refuse).
+   */
   private refresh(): Promise<string | null> {
-    if (this.refreshing) return this.refreshing;
     const stored = this.stored;
     if (!stored) return Promise.resolve(null);
     const generation = this.generation;
-    this.refreshing = (async () => {
+    if (this.refreshing?.generation === generation) return this.refreshing.token;
+    if (this.failedAt !== null && this.now() - this.failedAt < RETRY_AFTER_MS) return Promise.resolve(null);
+    const token = (async () => {
       const result = await this.deps.auth.refresh(stored.session.refreshToken);
       if (generation !== this.generation) return null;
       if (result.success) {
+        this.renewedAt = this.now();
+        this.failedAt = null;
         await this.keep(result.data);
-        return result.data.session.accessToken;
+        return generation === this.generation ? result.data.session.accessToken : null;
       }
-      // Sans réseau, la session reste : la requête n'aboutira pas, mais rien n'est perdu.
-      if (isConnectivityFailure(result.error)) return stored.session.accessToken;
-      await this.end(true);
+      if (refusesSession(result.error)) await this.end(true);
+      else this.failedAt = this.now();
       return null;
     })().finally(() => {
-      this.refreshing = null;
+      if (this.refreshing?.token === token) this.refreshing = null;
     });
-    return this.refreshing;
+    this.refreshing = { generation, token };
+    return token;
+  }
+
+  /** Une nouvelle session commence : rien de la précédente ne la suit. */
+  private begin(stored: StoredSession): void {
+    this.generation += 1;
+    this.stored = stored;
+    this.issued = new Set([stored.session.accessToken]);
+    this.refreshing = null;
+    this.renewedAt = null;
+    this.failedAt = null;
   }
 
   private async keep(signedIn: SignedIn): Promise<void> {
-    this.stored = { session: signedIn.session, user: signedIn.user };
-    await this.deps.tokens.write(this.stored).catch(() => undefined);
-    this.state.set({ status: 'signed-in', user: signedIn.user });
+    const generation = this.generation;
+    const stored: StoredSession = { session: signedIn.session, user: signedIn.user };
+    this.stored = stored;
+    this.issued.add(stored.session.accessToken);
+    await this.inVault((tokens) => tokens.write(stored));
+    if (generation === this.generation) this.state.set({ status: 'signed-in', user: signedIn.user });
   }
 
   private async end(ended: boolean): Promise<void> {
     this.generation += 1;
     this.stored = null;
-    await this.deps.tokens.clear().catch(() => undefined);
+    this.issued = new Set();
+    this.refreshing = null;
+    this.renewedAt = null;
+    this.failedAt = null;
+    await this.inVault((tokens) => tokens.clear());
     this.state.set({ status: 'signed-out', ended });
     this.endListeners.forEach((listener) => listener());
+  }
+
+  /** Une opération sur le coffre, après les précédentes ; un coffre qui refuse n'empêche rien. */
+  private inVault(operation: (tokens: TokenStore) => Promise<void>): Promise<void> {
+    const done = this.vault.then(() => operation(this.deps.tokens)).catch(() => undefined);
+    this.vault = done;
+    return done;
   }
 
   private now(): number {

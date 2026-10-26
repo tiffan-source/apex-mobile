@@ -20,12 +20,12 @@ export class InMemoryObjectivesGateway implements ObjectivesGateway {
   readonly calls: string[] = [];
 
   private sequence = 0;
-  private failures: { operation: string; code: string }[] = [];
+  private failures: { operation: string; code: string; skip: number }[] = [];
   private held: (() => void)[] | null = null;
 
-  /** La prochaine opération de ce nom échoue avec ce code. */
-  failNext(operation: keyof ObjectivesGateway, code = 'UNKNOWN_ERROR'): void {
-    this.failures.push({ operation, code });
+  /** La prochaine opération de ce nom (après `skip` autres) échoue avec ce code. */
+  failNext(operation: keyof ObjectivesGateway, code = 'UNKNOWN_ERROR', skip = 0): void {
+    this.failures.push({ operation, code, skip });
   }
 
   /** Les réponses attendent `release()` : de quoi faire un geste pendant qu'une requête est en route. */
@@ -132,10 +132,11 @@ export class InMemoryObjectivesGateway implements ObjectivesGateway {
   private async respond<T>(operation: string, action: () => Result<T>): Promise<Result<T>> {
     this.calls.push(operation);
     if (this.held) await new Promise<void>((resume) => this.held?.push(resume));
-    const failure = this.failures.findIndex((item) => item.operation === operation);
-    if (failure !== -1) {
-      const [{ code } = { code: 'UNKNOWN_ERROR' }] = this.failures.splice(failure, 1);
-      return fail({ code, message: `${operation} refusé (test)` });
+    const failure = this.failures.find((item) => item.operation === operation);
+    if (failure && failure.skip > 0) failure.skip -= 1;
+    else if (failure) {
+      this.failures.splice(this.failures.indexOf(failure), 1);
+      return fail({ code: failure.code, message: `${operation} refusé (test)` });
     }
     return action();
   }

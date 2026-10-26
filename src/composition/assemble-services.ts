@@ -64,10 +64,11 @@ export function assembleServices(adapters: Adapters, queryClient: QueryClient): 
     ...(adapters.timers ? { timers: adapters.timers } : {}),
   });
 
-  // Une session qui se ferme emporte tout ce qui lui appartenait.
+  // Une session qui se ferme emporte tout ce qui lui appartenait : ce qui attend dans la file ne part plus.
   session.onSignedOut(() => {
     akariWrites.stop();
-    writes.forget();
+    writes.close();
+    commands.forget();
     queryClient.clear();
     announcements.acknowledge();
   });

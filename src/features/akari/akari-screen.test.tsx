@@ -1,4 +1,5 @@
-import { fireEvent, screen, waitFor } from 'expo-router/testing-library';
+import { focusManager } from '@tanstack/react-query';
+import { act, fireEvent, screen, waitFor } from 'expo-router/testing-library';
 import { awaitingPermission, readyState } from '@/testing/fakes';
 import { createTestApp, renderApp, type TestApp } from '@/testing/test-app';
 import { typeset } from '@/domain/shared/typography';
@@ -95,5 +96,42 @@ describe('Akari', () => {
     expect(screen.getByText('les gammes')).toBeOnTheScreen();
     // Une conversation déjà commencée n'a pas d'invitation.
     expect(screen.queryByRole('button', { name: 'Propose-moi des étapes' })).not.toBeOnTheScreen();
+  });
+
+  it('un état lu avant l’envoi, et arrivé après, ne fait pas croire que le tour est fini', async () => {
+    const app = createTestApp();
+    piano(app);
+    app.assistant.conversation = [
+      { id: 'm1', sender: 'AI', content: 'On reprend ?', createdAt: '2026-10-20T10:00:00.000Z' },
+    ];
+    await renderApp(app, '/objectifs/o1/akari');
+    await fireEvent.changeText(await screen.findByTestId('composeur-saisie'), 'Par où je reprends ?');
+    await waitFor(() => expect(screen.getByTestId('composeur-envoyer')).toBeEnabled());
+
+    // L'application revient au premier plan : une lecture de l'état part (le serveur répond « prêt »)…
+    app.assistant.holdStates();
+    act(() => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+    await waitFor(() => expect(app.assistant.calls.filter((call) => call === 'state:o1')).toHaveLength(2));
+
+    // … la personne envoie son message, puis la lecture d'avant arrive.
+    await fireEvent.press(screen.getByTestId('composeur-envoyer'));
+    await waitFor(() => expect(app.assistant.calls).toContain('send:Par où je reprends ?'));
+    await act(() => app.assistant.releaseStates());
+
+    // Le tour continue : l'état est encore interrogé, et la réponse d'Akari arrive.
+    app.assistant.upcoming.push(
+      readyState('o1', {
+        lastRegisteredMessage: {
+          id: 'm-akari',
+          sender: 'AI',
+          content: 'Reprends par l’endurance.',
+          createdAt: new Date().toISOString(),
+        },
+      }),
+    );
+    expect(await screen.findByText('Reprends par l’endurance.', {}, { timeout: 3000 })).toBeOnTheScreen();
   });
 });

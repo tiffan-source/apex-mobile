@@ -51,6 +51,18 @@ export function isConnectivityFailure(failure: Failure): boolean {
   return failure.code === CLIENT_ERRORS.unreachable || failure.code === CLIENT_ERRORS.timeout;
 }
 
+/**
+ * Une panne passagère, qui ne dit rien de la demande : pas de réseau, un délai dépassé, trop de demandes à la
+ * suite (`429`), le serveur indisponible (`5xx`). Réessayer plus tard a un sens.
+ */
+export function isTransientFailure(failure: Failure): boolean {
+  return (
+    isConnectivityFailure(failure) ||
+    failure.status === 429 ||
+    (failure.status !== undefined && failure.status >= 500)
+  );
+}
+
 /** L'erreur levée quand un résultat en échec doit passer par une API qui attend une exception (TanStack Query). */
 export class FailureError extends Error {
   constructor(readonly failure: Failure) {

@@ -50,7 +50,7 @@ joue ce rôle), les statistiques, les toasts.
 ## 4. État
 
 - Tous les écrans, feuilles et gestes de la V1, sur le contrat d'Apex Brain.
-- 506 tests (Jest), dont les parcours de chaque écran sur les vraies routes, en iOS et en Android ;
+- 529 tests (Jest), dont les parcours de chaque écran sur les vraies routes, en iOS et en Android ;
   lint (avec la règle de dépendance), types (avec les routes typées), format.
 - Les bundles iOS et Android se construisent (`npm run export`) ; `expo prebuild` produit les projets
   natifs (icônes, écran de lancement Jour et Nuit).
@@ -80,6 +80,9 @@ joue ce rôle), les statistiques, les toasts.
 - Garder le contrat à jour : copier `/docs-json` d'Apex Brain dans `openapi/`, puis
   `npm run api:types`.
 - Des tests de bout en bout sur appareil (Maestro, par exemple), sur un Apex Brain de test.
+- Reporter dans le client web la règle du retour en arrière (`PendingChanges`) : ses stores remettent la
+  valeur d'avant le geste, et cocher puis décocher hors connexion y laisse le pas coché alors que la base
+  ne l'est pas.
 - Ce qui attend Apex Brain, comme pour le web : laisser filer ou supprimer un objectif, une étape ou un
   pas ; la pause et la reprise ; les domaines de vie ; les échéances des pas ; les empreintes et les
   paliers.

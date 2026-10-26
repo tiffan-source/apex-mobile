@@ -1,9 +1,9 @@
 import type { ObjectivesSnapshot } from '@/domain/objectives/objective';
 import { keepOptimistic } from '@/domain/objectives/snapshot';
-import { ok, type Result } from '@/domain/shared/result';
-import type { ObjectivesGateway } from '../ports/objectives-gateway';
+import { CLIENT_ERRORS, fail, ok, type Result } from '@/domain/shared/result';
+import type { ObjectivesAndTasks, ObjectivesGateway } from '../ports/objectives-gateway';
 import type { ObjectivesCache } from './objectives-cache';
-import type { WriteQueue } from './write-queue';
+import { SessionClosedError, type WriteQueue } from './write-queue';
 
 /**
  * Le chargement des objectifs, comme `withObjectiveQuery` du client web : une lecture de la base, dans la file
@@ -14,6 +14,9 @@ import type { WriteQueue } from './write-queue';
  * alors qu'il est enregistré. Elle est alors laissée de côté, et la base relue après ces écritures. Au premier
  * chargement, rien n'est encore à l'écran : la lecture vaut tout de suite. Les éléments encore optimistes (id
  * temporaire) sont gardés au remplacement, sinon ils disparaîtraient jusqu'au prochain chargement.
+ *
+ * Seules les écritures comptent comme des gestes : deux chargements en même temps ne se relancent pas l'un
+ * l'autre. Un chargement abandonné (`signal`, quand un autre le remplace) ne relit pas la base.
  */
 export class ObjectivesLoader {
   constructor(
@@ -24,12 +27,19 @@ export class ObjectivesLoader {
     },
   ) {}
 
-  async load(): Promise<Result<ObjectivesSnapshot>> {
-    const read = this.deps.writes.run(() => this.deps.gateway.list());
-    const mark = this.deps.writes.enqueued;
-    const result = await read;
+  async load(signal?: AbortSignal): Promise<Result<ObjectivesSnapshot>> {
+    const { writes, gateway, cache } = this.deps;
+    const mark = writes.enqueued;
+    const result = await writes
+      .read(() => gateway.list())
+      .catch((error: unknown) => {
+        // La session a pris fin pendant que la lecture attendait son tour.
+        if (error instanceof SessionClosedError)
+          return fail<ObjectivesAndTasks>({ code: CLIENT_ERRORS.signedOut, message: error.message });
+        throw error;
+      });
     if (!result.success) return result;
-    if (this.deps.writes.enqueued !== mark && this.deps.cache.read()?.loaded) return this.load();
-    return ok(keepOptimistic(result.data, this.deps.cache.read()));
+    if (writes.enqueued !== mark && cache.read()?.loaded && !signal?.aborted) return this.load(signal);
+    return ok(keepOptimistic(result.data, cache.read()));
   }
 }

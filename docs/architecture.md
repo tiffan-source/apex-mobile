@@ -82,7 +82,8 @@ retenté deux fois ; un refus du serveur ne l'est pas. Les données se relisent 
 Le chargement lui-même (`application/objectives/objectives-loader.ts`) prend place dans la file des
 écritures : il lit la base après les écritures déjà parties, garde les éléments encore optimistes, et
 relit la base si un geste est passé derrière lui pendant qu'il attendait, au lieu de l'effacer de
-l'écran.
+l'écran. Seules les écritures comptent comme des gestes : deux chargements en même temps ne se relancent
+pas l'un l'autre, et un chargement remplacé par un autre (son `signal` abandonné) s'arrête là.
 
 ### Écrire : des gestes optimistes, une file
 
@@ -92,22 +93,35 @@ Les écritures ne passent pas par TanStack Query mais par `ObjectiveCommands`
 1. le geste change tout de suite la copie locale (un id temporaire pour ce qu'il crée) ;
 2. il s'écrit dans la `WriteQueue`, une écriture à la fois et dans l'ordre des gestes (Apex Brain
    relit puis réenregistre un objectif entier : deux écritures simultanées pourraient s'écraser) ;
-3. il se réconcilie (id définitif, annonce aux lecteurs d'écran) ou revient en arrière (note d'Akari),
-   sans jamais défaire un geste plus récent sur le même élément.
+3. il se réconcilie dès la réponse, **dans la file** : l'écriture suivante part de l'état qu'il a
+   laissé (id définitif retenu, ce que le serveur a accepté) ; puis il est annoncé aux lecteurs d'écran,
+   ou signalé dans la note d'Akari.
 
 Un geste fait sur un élément encore optimiste part avec l'id définitif : la création passe avant lui
-dans la file et retient la correspondance (`link`), que le geste retrouve (`resolve`). Ici, la
-correspondance est retenue **dans** l'opération mise en file (`linked()`), avant que la file passe à
-l'écriture suivante ; le client web la retient dans la réponse du geste, ce qui marche par l'ordre des
-microtâches.
+dans la file et retient la correspondance (`link`), que le geste retrouve (`resolve`). Le client web la
+retient dans la réponse du geste, après la file, ce qui marche par l'ordre des microtâches ; ici, rien
+ne dépend de cet ordre.
+
+**Un retour en arrière rend ce que le serveur a accepté.** Tant que des gestes sont en route sur un pas
+ou un objectif, `PendingChanges` garde ce que le serveur en a : l'état d'avant le premier geste, plus les
+changements acceptés. Quand le dernier geste en route est réglé, l'élément montre cet état : cocher puis
+décocher hors connexion ramène le pas tel qu'il était, et un déplacement dans la matrice n'enregistre
+jamais au passage le titre d'une modification refusée. Une étape dont la création n'aboutit pas
+disparaît avec les pas créés dessus ; un pas déjà enregistré qu'on y avait rangé revient à sa place.
+
+**Une session fermée ferme sa file.** Ce qui attend encore n'est jamais envoyé avec le jeton d'une autre
+personne (`WriteQueue.close()`), et une réponse arrivée après la fermeture ne réconcilie rien et ne dit
+rien.
 
 ### Akari
 
 Il n'y a pas de flux : pendant un tour, `state/akari.ts` interroge l'état du workflow chaque seconde
 (comme le client web), jusqu'au repos ou à une demande d'accord. L'historique et l'état sont deux
-lectures du cache. Quand la personne accepte une étape ou un pas, `AkariWritesWatcher` surveille la fin
-de l'outil, même si l'écran Akari a été quitté, puis fait relire les objectifs : l'ajout arrive sur
-l'arête.
+lectures du cache. L'état que rend un envoi ou une réponse à une demande d'accord est le plus récent :
+une lecture partie avant lui est abandonnée, et l'état n'est pas interrogé tant qu'il est en route. Quand
+la personne accepte une étape ou un pas, `AkariWritesWatcher` surveille la fin de l'outil, même si
+l'écran Akari a été quitté (une lecture qui n'aboutit pas pour une raison passagère ne l'arrête pas),
+puis fait relire les objectifs : l'ajout arrive sur l'arête.
 
 ### Réussites et signalements
 
@@ -124,9 +138,19 @@ Apex Brain est sans état : le client garde le jeton d'accès et celui qui le re
 `SessionManager` (`application/session/session-manager.ts`) ouvre la session, la retrouve au lancement
 depuis le coffre de l'appareil (trousseau iOS, Keystore Android, par `expo-secure-store`), la renouvelle
 une minute avant son échéance ou après un refus `401` (le client HTTP rejoue alors la requête une fois),
-et la ferme. Une session qui se ferme emporte tout ce qui lui appartenait : le cache, la file, la
-surveillance d'Akari, la note en cours. L'écran de lancement reste tant que la session retenue, le thème
-et les polices ne sont pas prêts.
+et la ferme.
+
+- **Seul un refus du serveur ferme la session** (`401` ou `400` au renouvellement). Sans réseau, quand le
+  serveur est indisponible ou reçoit trop de demandes, elle reste ouverte ; le renouvellement suivant
+  attend quelques secondes.
+- **Une horloge en avance ne fait pas renouveler à chaque requête** : un jeton tout juste renouvelé sert
+  une minute, et le serveur dit (`401`) quand il ne vaut plus.
+- **Une requête refusée n'est rejouée qu'avec un jeton de sa propre session**, et un renouvellement en
+  route ne sert jamais à la session suivante.
+
+Une session qui se ferme emporte tout ce qui lui appartenait : le cache, la file et les gestes en route,
+la surveillance d'Akari, la note en cours. L'écran de lancement reste tant que la session retenue, le
+thème et les polices ne sont pas prêts.
 
 ## L'interface
 

@@ -48,6 +48,41 @@ describe('AkariWritesWatcher', () => {
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
+  it('une lecture qui n’aboutit pas (réseau, serveur occupé) ne dit pas que l’outil a fini : on interroge encore', async () => {
+    const assistant = new ScriptedAssistantGateway('o1');
+    assistant.state = executing('o1');
+    const timers = new ManualTimers();
+    const reload = jest.fn();
+    const watcher = new AkariWritesWatcher({ assistant, onObjectivesChanged: reload, timers });
+    watcher.watch('o1');
+    await timers.tick();
+    assistant.stateFailures.push('TIMEOUT', 'TOO_MANY_REQUESTS');
+    await timers.tick();
+    await timers.tick();
+    expect(reload).not.toHaveBeenCalled();
+    assistant.state = readyState('o1');
+    await timers.tick();
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('sans session, s’arrête sans recharger ; un refus du serveur recharge une fois', async () => {
+    const assistant = new ScriptedAssistantGateway('o1');
+    assistant.state = executing('o1');
+    const timers = new ManualTimers();
+    const reload = jest.fn();
+    const watcher = new AkariWritesWatcher({ assistant, onObjectivesChanged: reload, timers });
+    watcher.watch('o1');
+    assistant.stateFailures.push('SIGNED_OUT');
+    await timers.tick();
+    await timers.tick();
+    expect(reload).not.toHaveBeenCalled();
+    watcher.watch('o1');
+    assistant.stateFailures.push('OBJECTIVE_NOT_FOUND');
+    await timers.tick();
+    await timers.tick();
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
   it('s’arrête avec la session', async () => {
     const assistant = new ScriptedAssistantGateway('o1');
     assistant.state = executing('o1');
