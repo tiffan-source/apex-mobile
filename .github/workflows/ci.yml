@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Format, lint, types, tests, bundles
+    runs-on: ubuntu-latest
+    env:
+      # Les paquets @empreinte-studio/* viennent de GitHub Packages (.npmrc). Un secret NODE_AUTH_TOKEN
+      # (jeton read:packages) sert si le GITHUB_TOKEN du dépôt n'a pas accès aux paquets d'Empreinte.
+      NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN || secrets.GITHUB_TOKEN }}
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run verifier
+      # Les bundles iOS et Android se construisent (sans application native).
+      - run: npm run export
