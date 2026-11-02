@@ -85,8 +85,7 @@ export function cardProgress(card: ObjectiveCard): CardProgress {
   if (card.stageCount > 0) {
     const { done, toDo } = card.stageProgress;
     const looseTasksLeft = card.taskCount.total - card.taskCount.done;
-    // Toutes les étapes sont faites, mais des pas sans étape attendent encore : l'objectif n'est pas
-    // accompli, la légende ne doit pas le dire.
+    // Toutes les étapes sont faites, mais des pas sans étape attendent encore : la légende les compte.
     const legend =
       toDo === 0 && looseTasksLeft > 0
         ? `${compter(done, 'étape faite', 'étapes faites')} · ${compter(looseTasksLeft, 'pas sans étape', 'pas sans étape')} à faire`

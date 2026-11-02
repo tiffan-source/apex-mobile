@@ -1,5 +1,5 @@
 import { useQuery, type QueryClient, type QueryKey } from '@tanstack/react-query';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { toObjectiveCards, type ObjectiveCard } from '@/domain/objectives/objective-card';
 import {
   stageOptions,
@@ -80,10 +80,16 @@ export function useObjectives(): ObjectivesView {
   const loaded = snapshot.loaded;
   const { refetch } = query;
 
+  // Seul le geste de tirer montre le spinner : une relecture de fond (un pas coché, le retour au premier plan)
+  // ne bouge pas l'écran.
+  const [pulling, setPulling] = useState(false);
+
   // Un rechargement demandé (l'écran tiré vers le bas) dit s'il n'a pas abouti, même si l'écran montre encore
   // une lecture précédente. Le premier chargement, lui, est signalé par `reportLoadFailures`.
   const refresh = useCallback(() => {
+    setPulling(true);
     void refetch().then((result) => {
+      setPulling(false);
       if (!result.isError) return;
       const { code } = failureOf(result.error);
       if (code !== CLIENT_ERRORS.signedOut) announcements.report(failureReport('loadObjectives', code));
@@ -94,7 +100,7 @@ export function useObjectives(): ObjectivesView {
     snapshot,
     loaded,
     failure: !loaded && query.error ? failureOf(query.error) : null,
-    refreshing: query.isRefetching,
+    refreshing: pulling,
     refresh,
   };
 }

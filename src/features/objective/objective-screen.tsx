@@ -130,7 +130,11 @@ function StagePanel({
             </ETexte>
           ) : null}
           {stage.tasks.length > 0 ? (
-            <EPas faits={stage.progress.done} aFaire={stage.progress.toDo} />
+            <EPas
+              faits={stage.progress.done}
+              aFaire={stage.progress.toDo}
+              {...(stage.done ? { accompli: T.stageAccomplished } : {})}
+            />
           ) : (
             <ETexte variante="detail" couleur="encre-douce">
               {stage.detail}
@@ -188,15 +192,17 @@ export function ObjectiveScreen({ objectiveId }: { readonly objectiveId: string 
   const today = useToday();
   const { detail, notFound, failure, refreshing, refresh } = useObjectiveDetail(objectiveId, today);
   const { report } = useReport();
+  const scroller = useRef<ScrollViewInstance | null>(null);
 
   return (
     <Ecran
       note={<ReportNote />}
       rafraichir={{ enCours: refreshing, onRafraichir: refresh }}
+      defilement={scroller}
       testID="ecran-arete"
     >
       {detail ? (
-        <ObjectiveContent detail={detail} hasReport={!!report} />
+        <ObjectiveContent detail={detail} hasReport={!!report} scroller={scroller} />
       ) : (
         <>
           <FilAriane
@@ -220,15 +226,16 @@ export function ObjectiveScreen({ objectiveId }: { readonly objectiveId: string 
 function ObjectiveContent({
   detail,
   hasReport,
+  scroller,
 }: {
   readonly detail: ObjectiveDetail;
   readonly hasReport: boolean;
+  readonly scroller: RefObject<ScrollViewInstance | null>;
 }) {
   const styles = useStyles();
   const router = useRouter();
   const commands = useObjectiveCommands();
   const announcements = useAnnouncements();
-  const scroller = useRef<ScrollViewInstance | null>(null);
   const panel = useRef<ViewInstance | null>(null);
   const { objective, stages } = detail;
 

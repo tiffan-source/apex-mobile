@@ -9,6 +9,7 @@ export const OBJECTIVE_TEXTS = typesetTexts({
   arete: (stageCount: number) => `L'arête · ${compter(stageCount, 'étape')}`,
   stageMarker: (done: boolean) => `Étape · ${stageStateLabel(done)}`,
   stageChosen: (done: boolean, name: string) => `${name} · ${stageStateLabel(done)}`,
+  stageAccomplished: 'étape accomplie',
   chooseStage: "Choisis une étape sur l'arête pour voir ses pas.",
   edit: 'Modifier',
   editTaskLabel: (title: string) => `Modifier « ${title} »`,

@@ -75,7 +75,7 @@ describe('formatHorizon', () => {
 describe('détails lisibles', () => {
   it("compte ce qui est fait d'abord (legendeProgression d'Empreinte)", () => {
     expect(stageDetail({ done: 4, toDo: 3 })).toBe('4 pas faits · 3 à faire');
-    expect(stageDetail({ done: 4, toDo: 0 })).toBe('4 pas faits · étape accomplie');
+    expect(stageDetail({ done: 4, toDo: 0 })).toBe('4 pas faits');
     expect(stageDetail({ done: 0, toDo: 0 })).toBe(EMPTY_STAGE_DETAIL);
   });
 });
@@ -144,7 +144,7 @@ describe('cartes et vue détaillée', () => {
     expect(stage?.progress).toEqual({ done: 2, toDo: 2 });
     expect(stage?.detail).toBe('2 pas faits · 2 à faire');
     expect(stage?.tasks[0]?.quadrant).toBe('maintenant');
-    expect(detail?.stages[0]?.detail).toBe('2 pas faits · étape accomplie');
+    expect(detail?.stages[0]?.detail).toBe('2 pas faits');
     expect(detail?.stages[2]?.detail).toBe(EMPTY_STAGE_DETAIL);
   });
 
