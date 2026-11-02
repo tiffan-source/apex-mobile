@@ -1,6 +1,6 @@
 # Ce qui pourrait remonter dans Empreinte
 
-Empreinte React Native 0.3.1 publie les fondations (thème, polices, `ETexte`, `ETrame`, `ESurface`,
+Empreinte React Native 0.4 publie les fondations (thème, polices, `ETexte`, `ETrame`, `ESurface`,
 icônes, gardien du sceau) et les composants `EBouton`, `EEtiquette`, `EMarque`, `ECarte`, `EPas`,
 `EEmpreinte`, `ECase`, `EChamp`/`ESaisie`, `EListe`/`ETache`, `ENote`. Le kit CSS et les composants
 Angular d'Empreinte en ont davantage : ce qu'Apex mobile en a eu besoin est composé dans `src/ui`, dans

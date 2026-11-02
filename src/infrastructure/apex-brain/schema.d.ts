@@ -602,6 +602,7 @@ export interface operations {
                             /** Format: date-time */
                             dueDate: string | null;
                             parentObjective: string | null;
+                            done: boolean;
                         }[];
                         tasks: {
                             id: string;

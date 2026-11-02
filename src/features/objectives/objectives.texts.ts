@@ -6,8 +6,7 @@ export const OBJECTIVES_TEXTS = typesetTexts({
   newObjective: 'Nouvel objectif',
   open: 'Ouvrir',
   openLabel: (title: string) => `Ouvrir « ${title} »`,
-  nextStep: 'Prochain pas',
-  noStageYet: "Aucune étape pour l'instant. Pose la première quand tu veux.",
+  noStageYet: "Aucune étape pour l'instant. Ajoutes-en quand tu veux.",
   empty: {
     question: "Qu'est-ce que tu veux construire ?",
     invitation: 'Dis-le-moi en une phrase : on trouve les étapes ensemble.',

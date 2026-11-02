@@ -724,6 +724,9 @@
                           "parentObjective": {
                             "nullable": true,
                             "type": "string"
+                          },
+                          "done": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -732,7 +735,8 @@
                           "description",
                           "why",
                           "dueDate",
-                          "parentObjective"
+                          "parentObjective",
+                          "done"
                         ],
                         "additionalProperties": false
                       }

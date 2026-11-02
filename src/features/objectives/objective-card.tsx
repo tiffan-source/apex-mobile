@@ -1,5 +1,5 @@
 import { View } from 'react-native';
-import { EBouton, ECarte, EPas, ETache, ETexte, creerStyles } from '@empreinte-studio/react-native';
+import { EBouton, ECarte, EPas, ETexte, creerStyles } from '@empreinte-studio/react-native';
 import { cardProgress, type ObjectiveCard } from '@/domain/objectives/objective-card';
 import { isTemporaryId } from '@/domain/objectives/snapshot';
 import { quoted } from '@/domain/shared/typography';
@@ -12,42 +12,26 @@ const useStyles = creerStyles(({ couleurs }) => ({
   },
   pied: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: pas['pas-3'],
+    justifyContent: 'flex-end',
     paddingTop: pas['pas-4'],
     borderTopWidth: traits['trait-fin'],
     borderTopColor: couleurs.trame,
   },
-  piedSeul: {
-    justifyContent: 'flex-end',
-  },
-  prochainPas: {
-    flexGrow: 1,
-    flexBasis: 200,
-    paddingVertical: 0,
-    paddingHorizontal: 0,
-  },
 }));
 
 /**
- * La carte d'un objectif en marche (maquette « Objectifs ») : son horizon, son nom, son pourquoi, sa
- * progression, et son prochain pas à cocher sur place. Un objectif pas encore enregistré ne s'ouvre pas : son
- * adresse n'existe pas encore.
+ * La carte d'un objectif en marche (maquette « Objectifs ») : son horizon, son nom, son pourquoi et sa
+ * progression. Un objectif pas encore enregistré ne s'ouvre pas : son adresse n'existe pas encore.
  */
 export function ObjectiveCardView({
   card,
-  onToggleNextStep,
   onOpen,
 }: {
   readonly card: ObjectiveCard;
-  readonly onToggleNextStep: (taskId: string, done: boolean) => void;
   readonly onOpen: () => void;
 }) {
   const styles = useStyles();
   const progress = cardProgress(card);
-  const next = card.nextTask;
 
   return (
     <ECarte testID={`carte-${card.id}`}>
@@ -70,10 +54,8 @@ export function ObjectiveCardView({
       {progress.kind === 'cases' ? (
         <EPas
           faits={progress.done}
-          enCours={progress.inProgress}
-          aVenir={progress.upcoming}
+          aFaire={progress.toDo}
           unite={progress.unit}
-          {...(progress.currentName ? { nomEnCours: progress.currentName } : {})}
           {...(progress.legend ? { legende: progress.legend } : {})}
         />
       ) : (
@@ -82,19 +64,7 @@ export function ObjectiveCardView({
         </ETexte>
       )}
 
-      <View style={[styles.pied, !next && styles.piedSeul]}>
-        {next ? (
-          // La clé suit le pas : quand le pas coché laisse place au suivant, la case est recréée, non cochée.
-          <ETache
-            key={next.id}
-            titre={next.title}
-            meta={OBJECTIVES_TEXTS.nextStep}
-            fait={next.done}
-            onFaitChange={(done) => onToggleNextStep(next.id, done)}
-            style={styles.prochainPas}
-            testID={`prochain-pas-${next.id}`}
-          />
-        ) : null}
+      <View style={styles.pied}>
         <EBouton
           petit
           disabled={isTemporaryId(card.id)}

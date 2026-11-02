@@ -3,11 +3,11 @@ import { Pressable, View } from 'react-native';
 import Animated, { type CSSAnimationProperties } from 'react-native-reanimated';
 import Svg, { Line, Rect } from 'react-native-svg';
 import {
-  compter,
+  detailEtape,
   etapesAffichees,
   lignesTete,
+  resumeArete,
   type EtapeArete,
-  type EtatEtape,
 } from '@empreinte-studio/noyau';
 import {
   COURBE_PLI,
@@ -26,10 +26,10 @@ import { cornes, durees, pas, traits } from './fondations';
 
 /*
  * L'arête d'Empreinte (`e-arete`, le diagramme d'Ishikawa), dressée pour un téléphone. Sur le web, la colonne
- * court de gauche à droite jusqu'à la tête ; ici, elle descend : les étapes se lisent dans leur ordre, de la
- * première à la plus proche de l'objectif, et la colonne finit dans la tête, le sceau de l'objectif. Chaque
- * étape est une arête à 45° qui remonte vers la queue, comme les arêtes du web reculent depuis la colonne ; son
- * nom se lit au bout, en toutes lettres, sans être coupé.
+ * court de gauche à droite jusqu'à la tête ; ici, elle descend et finit dans la tête, le sceau de l'objectif. Les
+ * étapes sont indépendantes : leur place sur la colonne ne dit aucun ordre. Chaque étape est une arête à 45° qui
+ * remonte vers la queue, comme les arêtes du web reculent depuis la colonne ; son nom se lit au bout, en toutes
+ * lettres, sans être coupé.
  *
  * La tête est le seul grand sceau de l'écran. Au-delà de 8 étapes, les étapes faites se replient dans une seule
  * arête « Faites » (`etapesAffichees`, règle partagée avec le web). À remonter dans Empreinte.
@@ -37,12 +37,6 @@ import { cornes, durees, pas, traits } from './fondations';
 
 /** Une étape de l'arête, avec l'id qui permet de la retrouver quand on la choisit. */
 export type EtapeAreteApex = EtapeArete & { readonly id?: string };
-
-const ETATS: Readonly<Record<EtatEtape, string>> = {
-  faite: 'Faite',
-  'en-cours': 'En cours',
-  'a-venir': 'À venir',
-};
 
 /** La colonne, à 12 points du bord ; chaque arête monte de 36 points vers la droite jusqu'à sa borne. */
 const COLONNE_X = 12;
@@ -130,17 +124,16 @@ const useStyles = creerStyles(({ couleurs }) => ({
   },
 }));
 
-function trait(etat: EtatEtape, c: CouleursEmpreinte): { couleur: string; epaisseur: number } {
-  if (etat === 'faite') return { couleur: c.encre, epaisseur: traits['trait-net'] };
-  if (etat === 'en-cours') return { couleur: c.encre, epaisseur: traits['trait-icone'] };
+function trait(faite: boolean, c: CouleursEmpreinte): { couleur: string; epaisseur: number } {
+  if (faite) return { couleur: c.encre, epaisseur: traits['trait-net'] };
   return { couleur: c['trame-forte'], epaisseur: traits['trait-icone'] };
 }
 
 /** L'arête d'une étape et sa borne, tracées depuis la colonne. */
-function Branche({ etat }: { readonly etat: EtatEtape }) {
+function Branche({ faite }: { readonly faite: boolean }) {
   const { couleurs } = useTheme();
   const styles = useStyles();
-  const { couleur, epaisseur } = trait(etat, couleurs);
+  const { couleur, epaisseur } = trait(faite, couleurs);
   const xBout = COLONNE_X + LONGUEUR;
   const largeur = xBout + BORNE;
   const hauteur = BOUT_Y + LONGUEUR + 1;
@@ -160,8 +153,8 @@ function Branche({ etat }: { readonly etat: EtatEtape }) {
         y={BOUT_Y - BORNE / 2}
         width={BORNE}
         height={BORNE}
-        fill={etat === 'faite' ? couleurs.encre : couleurs.panneau}
-        stroke={etat === 'a-venir' ? couleurs['trame-forte'] : couleurs.encre}
+        fill={faite ? couleurs.encre : couleurs.panneau}
+        stroke={couleur}
         strokeWidth={traits['trait-icone']}
       />
     </Svg>
@@ -171,7 +164,7 @@ function Branche({ etat }: { readonly etat: EtatEtape }) {
 export type ProprietesArete = {
   /** Le nom de l'objectif, écrit dans la tête. Deux lignes au plus. */
   readonly objectif: string;
-  /** Les étapes, de la première à la plus proche de l'objectif. */
+  /** Les étapes, sans ordre entre elles : leur place sur la colonne ne dit rien. */
   readonly etapes: readonly EtapeAreteApex[];
   /** Le repère au-dessus du nom de l'objectif. */
   readonly repere?: string;
@@ -207,23 +200,17 @@ export function Arete({
     setVues(affichees.length);
   }
 
-  const nombre = (etat: EtatEtape) => etapes.filter((etape) => etape.etat === etat).length;
-  const faites = nombre('faite');
-  const resume =
-    `Arête de l'objectif « ${objectif} » : ${compter(etapes.length, 'étape')}, ` +
-    `${faites} ${faites >= 2 ? 'faites' : 'faite'}, ${nombre('en-cours')} en cours, ${nombre('a-venir')} à venir`;
-
   return (
     <View style={styles.arete} testID={testID}>
       <View>
         {affichees.length > 0 ? <View style={styles.queue} /> : null}
         {affichees.map((etape, index) => {
-          const detail = etape.detail ?? ETATS[etape.etat];
+          const detail = detailEtape(etape);
           const vue = choisie !== null && etape.id === choisie;
           const animation = index >= neuvesDepuis ? (reduit ? FONDU : DEPLIER) : null;
           const contenu = (
             <>
-              <Branche etat={etape.etat} />
+              <Branche faite={etape.faite} />
               <ETexte style={styles.nom} numberOfLines={2}>
                 {etape.nom}
               </ETexte>
@@ -255,7 +242,7 @@ export function Arete({
         })}
         {affichees.length > 0 ? <View style={styles.colonne} /> : null}
       </View>
-      <View accessible role="img" aria-label={resume} style={styles.tete}>
+      <View accessible role="img" aria-label={resumeArete(objectif, etapes)} style={styles.tete}>
         <ETrame fond={couleurs.sceau} corne={cornes['corne-m']} />
         <ETexte variante="repere" couleur="sur-sceau">
           {repere}
@@ -270,13 +257,12 @@ export function Arete({
   );
 }
 
-/** La légende de l'arête, avec les cases d'`EPas` : faite, en cours, à venir. */
+/** La légende de l'arête, avec les cases d'`EPas` : faite, à faire. */
 export function LegendeArete() {
   const styles = useStyles();
   const elements = [
     { cle: 'faite', libelle: 'Faite', pas: { faits: 1 } },
-    { cle: 'en-cours', libelle: 'En cours', pas: { enCours: true } },
-    { cle: 'a-venir', libelle: 'À venir', pas: { aVenir: 1 } },
+    { cle: 'a-faire', libelle: 'À faire', pas: { aFaire: 1 } },
   ] as const;
   return (
     <View style={styles.legende}>

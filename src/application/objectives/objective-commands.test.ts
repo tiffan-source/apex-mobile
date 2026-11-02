@@ -24,12 +24,14 @@ function setup(seed?: (gateway: InMemoryObjectivesGateway) => void) {
   const writes = new WriteQueue();
   const announcer = new RecordingAnnouncer();
   const announcements = new AnnouncementCenter(announcer);
+  const onObjectivesChanged = jest.fn();
   const commands = new ObjectiveCommands({
     gateway,
     cache,
     writes,
     announcements,
     ids: createTemporaryIds(),
+    onObjectivesChanged,
   });
   const loader = new ObjectivesLoader({ gateway, writes, cache });
   const load = async () => {
@@ -38,7 +40,18 @@ function setup(seed?: (gateway: InMemoryObjectivesGateway) => void) {
     return result;
   };
   const snapshot = (): ObjectivesSnapshot => cache.read() as ObjectivesSnapshot;
-  return { gateway, cache, writes, announcer, announcements, commands, loader, load, snapshot };
+  return {
+    gateway,
+    cache,
+    writes,
+    announcer,
+    announcements,
+    commands,
+    loader,
+    load,
+    snapshot,
+    onObjectivesChanged,
+  };
 }
 
 function seedSemi(gateway: InMemoryObjectivesGateway) {
@@ -193,6 +206,65 @@ describe('ObjectiveCommands', () => {
     await t.commands.editTask('p1', { title: 'Renommé', objectiveId: 'mental', importance: 4, urgency: 4 });
     expect(t.snapshot().tasks.find((task) => task.id === 'p1')?.title).toBe('Courir 5 km');
     expect(t.announcements.report$.get()).toBe(FAILURE_REPORTS.taskNotFound);
+  });
+});
+
+describe('fait ou non fait, le serveur le dit', () => {
+  it('relit les objectifs après un pas coché, ajouté ou modifié', async () => {
+    const t = setup(seedSemi);
+    await t.load();
+
+    await t.commands.setTaskDone('p1', true);
+    expect(t.onObjectivesChanged).toHaveBeenCalledTimes(1);
+
+    await t.commands.addTask('endurance', { title: 'Fractionné', importance: 3, urgency: 2 });
+    expect(t.onObjectivesChanged).toHaveBeenCalledTimes(2);
+
+    await t.commands.editTask('p1', {
+      title: 'Courir 9 km',
+      objectiveId: 'endurance',
+      importance: 4,
+      urgency: 4,
+    });
+    expect(t.onObjectivesChanged).toHaveBeenCalledTimes(3);
+  });
+
+  it('ne relit rien quand le geste est refusé, ni pour un geste qui ne change pas ce qui est fait', async () => {
+    const t = setup(seedSemi);
+    await t.load();
+
+    t.gateway.failNext('setTaskDone', 'FAIL_TO_SAVE_TASK');
+    await t.commands.setTaskDone('p1', true);
+    await t.commands.moveTaskToQuadrant('p2', 'maintenant');
+    await t.commands.addStage('semi', 'Mental');
+
+    expect(t.onObjectivesChanged).not.toHaveBeenCalled();
+  });
+
+  it('une étape reste non faite tant que le serveur ne la dit pas faite', async () => {
+    const t = setup(seedSemi);
+    await t.load();
+    const endurance = () => t.snapshot().objectives.find((item) => item.id === 'endurance');
+
+    await t.commands.setTaskDone('p1', true);
+    await t.commands.setTaskDone('p2', true);
+    expect(endurance()?.done).toBe(false);
+
+    await t.load();
+    expect(endurance()?.done).toBe(true);
+  });
+
+  it('retrouve l’id définitif d’une étape que la personne a ouverte avant son enregistrement', async () => {
+    const t = setup(seedSemi);
+    await t.load();
+    const saved = t.commands.addStage('semi', 'Mental');
+    const temporary = t.snapshot().objectives.find((item) => item.title === 'Mental')?.id as string;
+    expect(t.commands.currentId(temporary)).toBe(temporary);
+
+    await saved;
+    const real = t.snapshot().objectives.find((item) => item.title === 'Mental')?.id;
+    expect(isTemporaryId(real)).toBe(false);
+    expect(t.commands.currentId(temporary)).toBe(real);
   });
 });
 

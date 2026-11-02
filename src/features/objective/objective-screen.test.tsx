@@ -22,18 +22,34 @@ function semiMarathon(app: TestApp) {
 }
 
 describe("L'arête", () => {
-  it("ouvre l'étape en cours, et une autre quand on la choisit sur l'arête", async () => {
+  it("n'ouvre aucune étape d'elle-même, et ouvre celle qu'on choisit sur l'arête", async () => {
     const app = createTestApp();
     semiMarathon(app);
     await renderApp(app, '/objectifs/o1');
 
-    expect(await screen.findByText('Étape 2 · en cours')).toBeOnTheScreen();
-    expect(screen.getByRole('heading', { name: 'Endurance' })).toBeOnTheScreen();
+    expect(
+      await screen.findByText(typeset("Choisis une étape sur l'arête pour voir ses pas.")),
+    ).toBeOnTheScreen();
     expect(screen.getByText("L'arête · 3 étapes")).toBeOnTheScreen();
+    expect(screen.queryByRole('heading', { name: 'Endurance' })).not.toBeOnTheScreen();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Fractionné : À venir' }));
-    expect(await screen.findByText('Étape 3 · à venir')).toBeOnTheScreen();
-    expect(app.announcer.said.map((item) => item.text)).toContain(typeset('Étape 3 · à venir : Fractionné'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Fractionné : À faire' }));
+    expect(await screen.findByText('Étape · à faire')).toBeOnTheScreen();
+    expect(screen.getByRole('heading', { name: 'Fractionné' })).toBeOnTheScreen();
+    expect(app.announcer.said.map((item) => item.text)).toContain(typeset('Fractionné · à faire'));
+  });
+
+  it('dit ce que le serveur sait : cocher le dernier pas fait passer étape et objectif à « faite »', async () => {
+    const app = createTestApp();
+    semiMarathon(app);
+    await renderApp(app, '/objectifs/o1');
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Endurance : À faire' }));
+    await fireEvent.press(await screen.findByRole('checkbox', { name: 'Sortie de 45 minutes' }));
+
+    await waitFor(() => expect(screen.getByText('Étape · faite')).toBeOnTheScreen());
+    expect(screen.getByRole('button', { name: 'Endurance : Faite' })).toBeOnTheScreen();
+    await waitFor(() => expect(app.objectives.calls.filter((call) => call === 'list')).toHaveLength(2));
   });
 
   it("ajoute un pas à l'étape ouverte, rangé selon son importance et son urgence", async () => {
@@ -41,6 +57,7 @@ describe("L'arête", () => {
     semiMarathon(app);
     const router = await renderApp(app, '/objectifs/o1');
 
+    await fireEvent.press(await screen.findByRole('button', { name: 'Endurance : À faire' }));
     await fireEvent.press(await screen.findByRole('button', { name: 'Ajouter un pas' }));
     const sheet = await screen.findByTestId('feuille-ajout-pas');
     expect(router.getPathname()).toBe('/etapes/s2/nouveau-pas');
@@ -95,14 +112,14 @@ describe("L'arête", () => {
     );
   });
 
-  it('invite à poser la première étape, et l’ajoute', async () => {
+  it('invite à poser des étapes, et en ajoute une', async () => {
     const app = createTestApp();
     app.objectives.seedObjective({ id: 'o1', title: 'Apprendre le piano' });
     await renderApp(app, '/objectifs/o1');
 
     expect(
       await screen.findByText(
-        "Une arête commence par une étape. Ajoute la première, ou demande-moi de t'en proposer.",
+        "Une arête se construit avec des étapes. Ajoute-en une, ou demande-moi de t'en proposer.",
       ),
     ).toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'Ajouter une étape' }));
@@ -110,8 +127,7 @@ describe("L'arête", () => {
     await fireEvent.changeText(within(sheet).getByTestId('champ-nom-etape'), 'Solfège');
     await fireEvent.press(within(sheet).getByRole('button', { name: 'Ajouter' }));
 
-    expect(await screen.findByText('Étape 1 · en cours')).toBeOnTheScreen();
-    expect(screen.getByRole('heading', { name: 'Solfège' })).toBeOnTheScreen();
+    expect(await screen.findByRole('button', { name: 'Solfège : À faire' })).toBeOnTheScreen();
     await waitFor(() => expect(app.announcer.said.map((item) => item.text)).toContain('Étape ajoutée.'));
   });
 

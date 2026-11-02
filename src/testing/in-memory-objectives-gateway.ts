@@ -1,5 +1,6 @@
 import type { CreateObjectiveInput, EditObjectiveInput, EditTaskInput } from '@/domain/objectives/forms';
 import type { Objective, Task } from '@/domain/objectives/objective';
+import { tasksInSubtree } from '@/domain/objectives/tree';
 import { fail, ok, type Result } from '@/domain/shared/result';
 import type {
   Created,
@@ -9,9 +10,10 @@ import type {
 } from '@/application/ports/objectives-gateway';
 
 /**
- * Apex Brain en mémoire, pour les tests : les mêmes règles que l'API (ordre de création, « introuvable » pour un
- * id inconnu, déplacement d'un pas par `objectiveId`), des pannes à la demande et des réponses retenues pour
- * jouer les courses (un geste pendant un chargement).
+ * Apex Brain en mémoire, pour les tests : les mêmes règles que l'API (tri par création, « introuvable » pour un
+ * id inconnu, déplacement d'un pas par `objectiveId`, `done` d'un objectif ou d'une étape : au moins un pas, et
+ * tous faits), des pannes à la demande et des réponses retenues pour jouer les courses (un geste pendant un
+ * chargement).
  */
 export class InMemoryObjectivesGateway implements ObjectivesGateway {
   objectives: Objective[] = [];
@@ -42,7 +44,14 @@ export class InMemoryObjectivesGateway implements ObjectivesGateway {
   }
 
   seedObjective(objective: Partial<Objective> & Pick<Objective, 'id' | 'title'>): Objective {
-    const full: Objective = { description: '', why: '', dueDate: null, parentId: null, ...objective };
+    const full: Objective = {
+      description: '',
+      why: '',
+      dueDate: null,
+      parentId: null,
+      done: false,
+      ...objective,
+    };
     this.objectives.push(full);
     return full;
   }
@@ -54,7 +63,12 @@ export class InMemoryObjectivesGateway implements ObjectivesGateway {
   }
 
   async list(): Promise<Result<ObjectivesAndTasks>> {
-    return this.respond('list', () => ok({ objectives: [...this.objectives], tasks: [...this.tasks] }));
+    return this.respond('list', () =>
+      ok({
+        objectives: this.objectives.map((objective) => ({ ...objective, done: this.isDone(objective.id) })),
+        tasks: [...this.tasks],
+      }),
+    );
   }
 
   async createObjective(input: CreateObjectiveInput): Promise<Result<Created>> {
@@ -122,6 +136,12 @@ export class InMemoryObjectivesGateway implements ObjectivesGateway {
       this.tasks[index] = { ...old, done };
       return ok(undefined);
     });
+  }
+
+  /** Au moins un pas, sous-objectifs compris, et tous faits. */
+  private isDone(objectiveId: string): boolean {
+    const tasks = tasksInSubtree(objectiveId, this.objectives, this.tasks);
+    return tasks.length > 0 && tasks.every((task) => task.done);
   }
 
   private nextId(prefix: string): string {

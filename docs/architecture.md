@@ -47,6 +47,9 @@ Deux conséquences guident le code :
   [`empreinte-amont.md`](./empreinte-amont.md)).
 - **Les règles (`src/domain`) sont du TypeScript pur**, testées sans rendu : vues des cartes et de
   l'arête, matrice d'Eisenhower, formulaires, conversation d'Akari, voix, dates, typographie.
+- **Étapes et pas n'ont aucun ordre.** Ils sont indépendants : ni numéro, ni étape « en cours », ni
+  « prochain pas », et l'écran n'ouvre aucune étape de lui-même. Une étape ou un objectif est fait ou non
+  fait, et c'est Apex Brain qui le dit (`done`) : le client l'affiche et compte, il ne décide de rien.
 
 Le reste du code (domaine, application, état, écrans) est écrit en anglais ; les commentaires, la doc,
 les textes et les commits sont en français.
@@ -95,7 +98,9 @@ Les écritures ne passent pas par TanStack Query mais par `ObjectiveCommands`
    relit puis réenregistre un objectif entier : deux écritures simultanées pourraient s'écraser) ;
 3. il se réconcilie dès la réponse, **dans la file** : l'écriture suivante part de l'état qu'il a
    laissé (id définitif retenu, ce que le serveur a accepté) ; puis il est annoncé aux lecteurs d'écran,
-   ou signalé dans la note d'Akari.
+   ou signalé dans la note d'Akari ;
+4. un pas coché, ajouté ou modifié peut changer ce qui est fait : les objectifs sont relus
+   (`onObjectivesChanged`), et l'étape et l'objectif affichent ce que le serveur en dit.
 
 Un geste fait sur un élément encore optimiste part avec l'id définitif : la création passe avant lui
 dans la file et retient la correspondance (`link`), que le geste retrouve (`resolve`). Le client web la

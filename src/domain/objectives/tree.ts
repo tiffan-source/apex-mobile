@@ -2,10 +2,10 @@ import type { Objective, Task } from './objective';
 
 /*
  * L'arbre des objectifs, lu dans la copie à plat : objectifs racines, étapes, descendants, pas d'un sous-arbre.
- * Tout reste dans l'ordre de chargement (l'ordre de création, que le serveur garde stable).
+ * Étapes et pas n'ont aucun ordre : le tri du serveur (création, puis id) garde seulement l'affichage stable.
  */
 
-/** Les objectifs racines, dans l'ordre de chargement. */
+/** Les objectifs racines. */
 export function rootObjectives(objectives: readonly Objective[]): Objective[] {
   return objectives.filter((objective) => objective.parentId === null);
 }
@@ -15,7 +15,7 @@ export function isRootObjective(objectiveId: string, objectives: readonly Object
   return objectives.some((objective) => objective.id === objectiveId && objective.parentId === null);
 }
 
-/** Les étapes d'un objectif : ses sous-objectifs directs, dans l'ordre de chargement. */
+/** Les étapes d'un objectif : ses sous-objectifs directs. */
 export function stagesOf(objectiveId: string, objectives: readonly Objective[]): Objective[] {
   return objectives.filter((objective) => objective.parentId === objectiveId);
 }
@@ -36,7 +36,7 @@ export function subtreeIds(objectiveId: string, objectives: readonly Objective[]
   return ids;
 }
 
-/** Les pas d'un objectif et de tous ses descendants, dans l'ordre de chargement des pas. */
+/** Les pas d'un objectif et de tous ses descendants. */
 export function tasksInSubtree(
   objectiveId: string,
   objectives: readonly Objective[],

@@ -38,6 +38,8 @@ import { SessionClosedError, type WriteQueue } from './write-queue';
  *   geste en route sur lui est réglé : jamais la valeur d'un geste refusé, ni ne défait un geste plus récent.
  * - Un geste dont la session a pris fin ne se réconcilie pas et ne dit rien : la personne suivante ne voit
  *   rien de la précédente.
+ * - Fait ou non fait, pour une étape ou un objectif, c'est le serveur qui le dit : après un pas coché, ajouté
+ *   ou modifié, les objectifs sont relus (`onObjectivesChanged`).
  */
 
 export type ObjectiveCommandsDeps = {
@@ -46,6 +48,8 @@ export type ObjectiveCommandsDeps = {
   readonly writes: WriteQueue;
   readonly announcements: AnnouncementCenter;
   readonly ids: TemporaryIds;
+  /** Un geste a pu changer ce qui est fait : les objectifs sont à relire. */
+  readonly onObjectivesChanged: () => void;
 };
 
 /** Une écriture qui n'a pas pu partir : l'élément qu'elle visait n'a jamais été enregistré (déjà signalé). */
@@ -78,6 +82,7 @@ export class ObjectiveCommands {
         why: input.why ?? '',
         dueDate: input.dueDate ?? null,
         parentId: null,
+        done: false,
       }),
     );
 
@@ -133,6 +138,7 @@ export class ObjectiveCommands {
         why: '',
         dueDate: null,
         parentId: writes.resolve(objectiveId),
+        done: false,
       }),
     );
 
@@ -171,6 +177,7 @@ export class ObjectiveCommands {
       },
     );
     this.tell(sent, 'addTask', SUCCESS_ANNOUNCEMENTS.taskAdded);
+    this.reread(sent);
   }
 
   /** Modifie un pas, ou le déplace en changeant `objectiveId`. Son « fait » ne change pas. */
@@ -200,6 +207,7 @@ export class ObjectiveCommands {
       (result) => this.settleTask(taskId, accepted(result) ? change : null),
     );
     this.tell(sent, 'editTask', SUCCESS_ANNOUNCEMENTS.taskSaved);
+    this.reread(sent);
   }
 
   /** Coche ou décoche un pas. */
@@ -220,6 +228,7 @@ export class ObjectiveCommands {
       (result) => this.settleTask(taskId, accepted(result) ? change : null),
     );
     this.tell(sent, 'toggleTask', done ? SUCCESS_ANNOUNCEMENTS.taskDone : SUCCESS_ANNOUNCEMENTS.taskUndone);
+    this.reread(sent);
   }
 
   /**
@@ -251,6 +260,11 @@ export class ObjectiveCommands {
       (result) => this.settleTask(taskId, accepted(result) ? change : null),
     );
     this.tell(sent, 'moveTask', taskMovedAnnouncement(quadrant));
+  }
+
+  /** L'id définitif d'un élément s'il est connu, sinon l'id tel quel. */
+  currentId(id: string): string {
+    return this.deps.writes.resolve(id);
   }
 
   /** La session a pris fin : les gestes en route sont oubliés. */
@@ -339,6 +353,11 @@ export class ObjectiveCommands {
     if (sent === CLOSED || sent === SKIPPED) return;
     if (sent.success) this.deps.announcements.announce(success);
     else this.report(action, sent.error);
+  }
+
+  /** Une écriture acceptée a pu changer ce qui est fait : le serveur le dira à la prochaine lecture. */
+  private reread<T>(sent: Sent<T> | typeof CLOSED): void {
+    if (sent !== CLOSED && accepted(sent)) this.deps.onObjectivesChanged();
   }
 
   /** Plus de session : l'écran de connexion le dit, rien d'autre n'est à signaler. */

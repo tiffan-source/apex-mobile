@@ -4,7 +4,7 @@ import { EBouton, EEmpreinte, EIcone, ENote, ETexte, creerStyles } from '@emprei
 import { objectivesSummary } from '@/domain/objectives/objective-card';
 import { formatToday } from '@/domain/shared/dates';
 import { useReport } from '@/state/announcements';
-import { useObjectiveCards, useObjectiveCommands } from '@/state/objectives';
+import { useObjectiveCards } from '@/state/objectives';
 import { useToday } from '@/state/today';
 import { Ecran } from '@/ui/ecran';
 import { EnTete } from '@/ui/en-tete';
@@ -40,14 +40,13 @@ const useStyles = creerStyles(({ couleurs }) => ({
 
 /**
  * L'écran Objectifs, l'accueil (maquette « Objectifs ») : les objectifs en marche en cartes, chacun avec sa
- * progression et son prochain pas à cocher, puis les objectifs accomplis dans un repli.
+ * progression, puis les objectifs accomplis dans un repli.
  */
 export function ObjectivesScreen() {
   const styles = useStyles();
   const router = useRouter();
   const today = useToday();
   const { running, accomplished, loaded, failure, refreshing, refresh } = useObjectiveCards(today);
-  const commands = useObjectiveCommands();
   const { report } = useReport();
 
   // Une question à la fois : tant qu'Akari signale un souci, l'invitation attend.
@@ -82,7 +81,6 @@ export function ObjectivesScreen() {
             <ObjectiveCardView
               key={card.id}
               card={card}
-              onToggleNextStep={(taskId, done) => void commands.setTaskDone(taskId, done)}
               onOpen={() => router.push(routes.objective(card.id))}
             />
           ))}

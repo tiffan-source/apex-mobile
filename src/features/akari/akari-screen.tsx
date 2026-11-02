@@ -11,7 +11,7 @@ import {
   type Reply,
 } from '@/domain/akari/conversation';
 import { stageName, type ObjectiveDetail } from '@/domain/objectives/objective-detail';
-import { STAGE_STATE_TITLES } from '@/domain/objectives/progress';
+import { stageStateTitle } from '@/domain/objectives/progress';
 import { CRUMB_TITLE_MAX, firstName, shortTitle } from '@/domain/shared/titles';
 import { useAkari } from '@/state/akari';
 import { useAnnouncements, useReport } from '@/state/announcements';
@@ -43,9 +43,6 @@ const useStyles = creerStyles(({ couleurs }) => ({
     paddingTop: pas['pas-3'],
     borderTopWidth: traits['trait-fin'],
     borderTopColor: couleurs.trame,
-  },
-  numero: {
-    width: pas['pas-6'] + pas['pas-1'],
   },
   nom: {
     flex: 1,
@@ -222,13 +219,10 @@ function AkariConversationScreen({
           {stages.length > 0 ? (
             stages.map((item) => (
               <View key={item.id} style={styles.etape}>
-                <ETexte variante="objectif" style={styles.numero}>
-                  {String(item.index)}
-                </ETexte>
                 <View style={styles.nom}>
                   <ETexte>{stageName(item.title)}</ETexte>
                   <ETexte variante="detail" couleur="encre-douce">
-                    {[STAGE_STATE_TITLES[item.state], item.horizon].filter(Boolean).join(' · ')}
+                    {[stageStateTitle(item.done), item.horizon].filter(Boolean).join(' · ')}
                   </ETexte>
                 </View>
                 <ETexte variante="detail" couleur="encre-douce">

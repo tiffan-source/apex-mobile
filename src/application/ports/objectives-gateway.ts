@@ -18,7 +18,7 @@ export type Created = { readonly id: string };
 export type NewTask = { readonly title: string } & Levels;
 
 export interface ObjectivesGateway {
-  /** `GET /v1/objectives` : tout, à plat, dans l'ordre de création. */
+  /** `GET /v1/objectives` : tout, à plat. Étapes et pas n'ont aucun ordre : le tri garde l'affichage stable. */
   list(): Promise<Result<ObjectivesAndTasks>>;
   /** `POST /v1/objectives` */
   createObjective(input: CreateObjectiveInput): Promise<Result<Created>>;

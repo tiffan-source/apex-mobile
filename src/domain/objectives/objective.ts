@@ -18,6 +18,8 @@ export type Objective = {
   readonly dueDate: string | null;
   /** L'objectif (ou l'étape) parent ; null pour un objectif racine. */
   readonly parentId: string | null;
+  /** Fait ou non fait : c'est le serveur qui le dit, le client l'affiche sans le calculer. */
+  readonly done: boolean;
 };
 
 export type Task = {
