@@ -22,45 +22,12 @@ export const EISENHOWER_THRESHOLD = 3;
 export const MIN_LEVEL = 1;
 export const MAX_LEVEL = 5;
 
-/** Ce que chaque quadrant demande : important ou secondaire, urgent ou pas urgent. */
-export const QUADRANT_AXES: Readonly<
-  Record<Quadrant, { readonly important: boolean; readonly urgent: boolean }>
-> = {
-  maintenant: { important: true, urgent: true },
-  planifier: { important: true, urgent: false },
-  confier: { important: false, urgent: true },
-  'laisser-filer': { important: false, urgent: false },
-};
-
 /** Le quadrant d'un pas, selon la règle d'Apex. */
 export function quadrantOf(levels: Levels): Quadrant {
   const important = levels.importance >= EISENHOWER_THRESHOLD;
   const urgent = levels.urgency >= EISENHOWER_THRESHOLD;
   if (important) return urgent ? 'maintenant' : 'planifier';
   return urgent ? 'confier' : 'laisser-filer';
-}
-
-/**
- * L'importance et l'urgence d'un pas déplacé vers un quadrant, en ne changeant que ce qui doit changer :
- * côté « important » ou « urgent », une valeur sous 3 passe à 3 ; côté « secondaire » ou « pas urgent »,
- * une valeur de 3 ou plus passe à 2. Le reste ne bouge pas.
- */
-export function levelsForQuadrant(levels: Levels, quadrant: Quadrant): Levels {
-  const { important, urgent } = QUADRANT_AXES[quadrant];
-  return {
-    importance: adjustLevel(levels.importance, important),
-    urgency: adjustLevel(levels.urgency, urgent),
-  };
-}
-
-function adjustLevel(value: number, high: boolean): number {
-  if (high) return value < EISENHOWER_THRESHOLD ? EISENHOWER_THRESHOLD : value;
-  return value >= EISENHOWER_THRESHOLD ? EISENHOWER_THRESHOLD - 1 : value;
-}
-
-/** Les trois autres quadrants : là où un pas peut aller depuis le sien. */
-export function otherQuadrants(quadrant: Quadrant): Quadrant[] {
-  return QUADRANTS.filter((target) => target !== quadrant);
 }
 
 /**

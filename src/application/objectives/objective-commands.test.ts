@@ -1,4 +1,3 @@
-import { QUADRANTS } from '@empreinte-studio/noyau';
 import { quadrantOf } from '@/domain/objectives/eisenhower';
 import { FAILURE_REPORTS, SUCCESS_ANNOUNCEMENTS } from '@/domain/objectives/messages';
 import type { ObjectivesSnapshot, Task } from '@/domain/objectives/objective';
@@ -211,14 +210,28 @@ describe('un retour en arrière rend ce que le serveur a accepté', () => {
     expect(t.announcements.report$.get()).toBe(FAILURE_REPORTS.toggleTask);
   });
 
-  it('deux déplacements refusés : le pas reste dans son quadrant', async () => {
+  it('une importance et une urgence modifiées rangent le pas dans un autre quadrant', async () => {
+    const t = setup(seedSemi);
+    await t.load();
+    await t.commands.editTask('p1', {
+      title: 'Courir 5 km',
+      objectiveId: 'endurance',
+      importance: 4,
+      urgency: 2,
+    });
+    expect(quadrantOf(p1(t) as Task)).toBe('planifier');
+    expect(quadrantOf(serverP1(t) as Task)).toBe('planifier');
+  });
+
+  it('deux modifications refusées : le pas reste dans son quadrant', async () => {
     const t = setup(seedSemi);
     await t.load();
     t.gateway.failNext('editTask');
     t.gateway.failNext('editTask');
+    const task = { title: 'Courir 5 km', objectiveId: 'endurance' };
     await Promise.all([
-      t.commands.moveTaskToQuadrant('p1', 'planifier'),
-      t.commands.moveTaskToQuadrant('p1', 'laisser-filer'),
+      t.commands.editTask('p1', { ...task, importance: 4, urgency: 2 }),
+      t.commands.editTask('p1', { ...task, importance: 2, urgency: 2 }),
     ]);
     expect(quadrantOf(p1(t) as Task)).toBe('maintenant');
     expect(quadrantOf(serverP1(t) as Task)).toBe('maintenant');
@@ -245,22 +258,6 @@ describe('un retour en arrière rend ce que le serveur a accepté', () => {
     await Promise.all([t.commands.setTaskDone('p1', true), t.commands.setTaskDone('p1', false)]);
     expect(serverP1(t)?.done).toBe(true);
     expect(p1(t)?.done).toBe(true);
-  });
-
-  it('une modification refusée n’est pas enregistrée au passage par un déplacement accepté', async () => {
-    const t = setup(seedSemi);
-    await t.load();
-    t.gateway.failNext('editTask');
-    const renamed = t.commands.editTask('p1', {
-      title: 'Courir 6 km',
-      objectiveId: 'endurance',
-      importance: 4,
-      urgency: 4,
-    });
-    const moved = t.commands.moveTaskToQuadrant('p1', 'planifier');
-    await Promise.all([renamed, moved]);
-    expect(serverP1(t)).toMatchObject({ title: 'Courir 5 km', importance: 4, urgency: 2 });
-    expect(p1(t)).toMatchObject({ title: 'Courir 5 km', importance: 4, urgency: 2 });
   });
 
   it('un pas rangé sur une étape dont la création n’aboutit pas revient dans son étape', async () => {
@@ -326,39 +323,6 @@ describe('la fin d’une session', () => {
     t.writes.link('temp-id-x', 'o-9');
     t.writes.close();
     expect(t.writes.resolve('temp-id-x')).toBe('temp-id-x');
-  });
-});
-
-describe('déplacer un pas vers un quadrant : les 16 cas, niveaux de 1 à 5', () => {
-  it('arrive toujours dans le quadrant demandé, et revient en arrière si l’enregistrement n’aboutit pas', async () => {
-    for (const from of QUADRANTS) {
-      for (const to of QUADRANTS) {
-        const levels = { maintenant: [4, 4], planifier: [4, 1], confier: [1, 4], 'laisser-filer': [1, 1] }[
-          from
-        ];
-        const t = setup((gateway) => {
-          gateway.seedObjective({ id: 'o', title: 'O' });
-          gateway.seedTask({
-            id: 'p',
-            title: 'P',
-            objectiveId: 'o',
-            importance: levels[0],
-            urgency: levels[1],
-          });
-        });
-        await t.load();
-        await t.commands.moveTaskToQuadrant('p', to);
-        const task = t.snapshot().tasks[0];
-        expect(task && quadrantOf(task)).toBe(to);
-        if (from === to) expect(t.gateway.calls).not.toContain('editTask');
-        else {
-          expect(t.announcer.said.at(-1)?.text).toContain('Ce pas passe dans');
-          t.gateway.failNext('editTask');
-          await t.commands.moveTaskToQuadrant('p', from);
-          expect(quadrantOf(t.snapshot().tasks[0] as never)).toBe(to);
-        }
-      }
-    }
   });
 });
 

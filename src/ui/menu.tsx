@@ -5,8 +5,8 @@ import { poserLeLecteurSur } from './accessibilite';
 import { Deroulant, ElementDeroulant, mesurerAncre, type Ancre } from './deroulant';
 
 /*
- * Un menu d'actions derrière un bouton à icône, comme `e-menu` d'Empreinte : « Déplacer vers… » sur un pas de
- * la matrice. Le bouton dit ce qu'il ouvre ; chaque entrée fait une seule chose et referme le menu.
+ * Un menu d'actions derrière un bouton à icône, comme `e-menu` d'Empreinte. Le bouton dit ce qu'il ouvre ;
+ * chaque entrée fait une seule chose et referme le menu.
  */
 
 export type EntreeMenu<V> = {
@@ -18,7 +18,7 @@ export type EntreeMenu<V> = {
 };
 
 export type ProprietesMenu<V> = {
-  /** Ce que le bouton ouvre : « Déplacer « Réviser » vers… ». C'est son nom pour les lecteurs d'écran. */
+  /** Ce que le bouton ouvre : « Réglages ». C'est son nom pour les lecteurs d'écran. */
   readonly libelle: string;
   readonly icone?: NomIcone;
   readonly entrees: readonly EntreeMenu<V>[];

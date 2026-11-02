@@ -6,7 +6,6 @@ import {
   QUADRANTS,
   QUADRANT_DESCRIPTIONS,
   TITRES_QUADRANTS,
-  otherQuadrants,
   type Quadrant,
 } from '@/domain/objectives/eisenhower';
 import {
@@ -25,7 +24,6 @@ import { Ecran } from '@/ui/ecran';
 import { EnTete } from '@/ui/en-tete';
 import { Filtres } from '@/ui/filtres';
 import { pas } from '@/ui/fondations';
-import { Menu } from '@/ui/menu';
 import { MARGE_PANNEAU } from '@/ui/panneau';
 import { Quadrants, type TuileQuadrant } from '@/ui/quadrants';
 import { AppBand } from '../shell/app-band';
@@ -45,18 +43,8 @@ const useStyles = creerStyles(() => ({
   titreQuadrant: {
     gap: 2,
   },
-  ligne: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: pas['pas-2'],
-    paddingVertical: pas['pas-3'],
-    paddingLeft: MARGE_PANNEAU.laterale,
-    paddingRight: pas['pas-2'],
-  },
   tache: {
-    flex: 1,
-    paddingVertical: 0,
-    paddingHorizontal: 0,
+    paddingHorizontal: MARGE_PANNEAU.laterale,
   },
   vide: {
     paddingVertical: pas['pas-4'],
@@ -66,9 +54,10 @@ const useStyles = creerStyles(() => ({
 
 /**
  * La matrice d'Eisenhower (`/matrice`) : tous les pas, faits compris, rangés dans les quatre quadrants
- * d'Empreinte. Sur un téléphone, les quatre panneaux donnent la vue d'ensemble ; celui qu'on ouvre montre ses
- * pas, qu'on coche sur place ou qu'on déplace avec « Déplacer vers… ». Le filtre par objectif ne vit que dans
- * l'écran.
+ * d'Empreinte d'après leur importance et leur urgence. Sur un téléphone, les quatre panneaux donnent la vue
+ * d'ensemble ; celui qu'on ouvre montre ses pas, qu'on coche sur place. On ne les y déplace pas : un pas change
+ * de quadrant quand ses niveaux changent, dans « Modifier le pas », sur son objectif. Le filtre par objectif ne
+ * vit que dans l'écran.
  */
 export function MatrixScreen() {
   const styles = useStyles();
@@ -174,27 +163,15 @@ export function MatrixScreen() {
             <EListe>
               {tasks.length > 0 ? (
                 tasks.map((task) => (
-                  <View key={task.id} style={styles.ligne}>
-                    <ETache
-                      titre={task.title}
-                      {...(matrixTaskDetail(task) ? { meta: matrixTaskDetail(task) } : {})}
-                      fait={task.done}
-                      onFaitChange={(done) => void commands.setTaskDone(task.id, done)}
-                      style={styles.tache}
-                      testID={`pas-${task.id}`}
-                    />
-                    <Menu
-                      libelle={T.moveLabel(task.title)}
-                      icone="deplacer"
-                      petit
-                      entrees={otherQuadrants(open).map((target) => ({
-                        valeur: target,
-                        libelle: TITRES_QUADRANTS[target],
-                      }))}
-                      onChoix={(target) => void commands.moveTaskToQuadrant(task.id, target)}
-                      testID={`deplacer-${task.id}`}
-                    />
-                  </View>
+                  <ETache
+                    key={task.id}
+                    titre={task.title}
+                    {...(matrixTaskDetail(task) ? { meta: matrixTaskDetail(task) } : {})}
+                    fait={task.done}
+                    onFaitChange={(done) => void commands.setTaskDone(task.id, done)}
+                    style={styles.tache}
+                    testID={`pas-${task.id}`}
+                  />
                 ))
               ) : (
                 <View style={styles.vide}>
