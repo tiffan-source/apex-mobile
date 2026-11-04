@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { EChamp, ESaisie } from '@empreinte-studio/react-native';
+import { EChamp, EFeuille, ESaisie } from '@empreinte-studio/react-native';
+import { EChampDate } from '@empreinte-studio/react-native/champ-date';
 import {
   hasErrors,
   toEditObjectiveInput,
@@ -10,8 +11,6 @@ import {
 import type { Objective } from '@/domain/objectives/objective';
 import { formatLongDate, startOfDay } from '@/domain/shared/dates';
 import { useObjectiveCommands, useObjectiveItem, useObjectives } from '@/state/objectives';
-import { ChampDate } from '@/ui/champ-date';
-import { Feuille } from '@/ui/feuille';
 import { GoneSheet, LoadingSheet, SheetActions, useCloseSheet } from './sheet-frame';
 import { SHEETS_TEXTS } from './sheets.texts';
 
@@ -48,7 +47,7 @@ function EditStageForm({ stage }: { readonly stage: Objective }) {
   };
 
   return (
-    <Feuille
+    <EFeuille
       titre={T.title}
       onFermer={close}
       actions={
@@ -69,7 +68,7 @@ function EditStageForm({ stage }: { readonly stage: Objective }) {
         />
       </EChamp>
       <EChamp libelle={T.dueDate} facultatif aide={T.dueDateHelp}>
-        <ChampDate
+        <EChampDate
           libelle={T.dueDate}
           valeur={form.dueDate}
           {...(form.dueDate ? { texte: formatLongDate(form.dueDate) } : {})}
@@ -79,6 +78,6 @@ function EditStageForm({ stage }: { readonly stage: Objective }) {
           libelleRetirer={T.removeDueDate}
         />
       </EChamp>
-    </Feuille>
+    </EFeuille>
   );
 }

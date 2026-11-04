@@ -1,6 +1,14 @@
 import { useRouter } from 'expo-router';
 import { View } from 'react-native';
-import { EBouton, EEmpreinte, EIcone, ENote, ETexte, creerStyles } from '@empreinte-studio/react-native';
+import {
+  EBouton,
+  EEmpreinte,
+  EIcone,
+  ENote,
+  ERepli,
+  ETexte,
+  creerStyles,
+} from '@empreinte-studio/react-native';
 import { objectivesSummary } from '@/domain/objectives/objective-card';
 import { formatToday } from '@/domain/shared/dates';
 import { useReport } from '@/state/announcements';
@@ -10,7 +18,6 @@ import { Ecran } from '@/ui/ecran';
 import { EnTete } from '@/ui/en-tete';
 import { pas, traits } from '@/ui/fondations';
 import { Trame } from '@/ui/panneau';
-import { Repli } from '@/ui/repli';
 import { AppBand } from '../shell/app-band';
 import { ReportNote } from '../shell/report-note';
 import { routes } from '../shell/routes';
@@ -109,7 +116,7 @@ export function ObjectivesScreen() {
       ) : null}
 
       {accomplished.length > 0 ? (
-        <Repli titre={OBJECTIVES_TEXTS.accomplished} detail={String(accomplished.length)} testID="accomplis">
+        <ERepli titre={OBJECTIVES_TEXTS.accomplished} detail={String(accomplished.length)} testID="accomplis">
           {accomplished.map((objective) => (
             <View key={objective.id} style={styles.accompli}>
               <EEmpreinte taille={32} decorative />
@@ -128,7 +135,7 @@ export function ObjectivesScreen() {
               </EBouton>
             </View>
           ))}
-        </Repli>
+        </ERepli>
       ) : null}
     </Ecran>
   );

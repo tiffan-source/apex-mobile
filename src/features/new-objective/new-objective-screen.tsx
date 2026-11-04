@@ -1,7 +1,17 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
-import { EBouton, EChamp, ESaisie, ETexte, creerStyles } from '@empreinte-studio/react-native';
+import {
+  EBouton,
+  EChamp,
+  EFil,
+  EFilAriane,
+  ESaisie,
+  ETexte,
+  type RepliqueFil,
+  creerStyles,
+} from '@empreinte-studio/react-native';
+import { EChampDate } from '@empreinte-studio/react-native/champ-date';
 import {
   EMPTY_DRAFT,
   toCreateObjectiveInput,
@@ -14,11 +24,8 @@ import { quoted } from '@/domain/shared/typography';
 import { useObjectiveCommands } from '@/state/objectives';
 import { useCurrentUser } from '@/state/session';
 import { useToday } from '@/state/today';
-import { ChampDate } from '@/ui/champ-date';
 import { Ecran } from '@/ui/ecran';
 import { EnTete } from '@/ui/en-tete';
-import { Fil, type RepliqueFil } from '@/ui/fil';
-import { FilAriane } from '@/ui/fil-ariane';
 import { pas } from '@/ui/fondations';
 import { Panneau, Trame } from '@/ui/panneau';
 import { ReportNote } from '../shell/report-note';
@@ -126,7 +133,7 @@ export function NewObjectiveScreen() {
         aide={T.fields.dueDateHelp}
         erreur={errors.dueDate ?? null}
       >
-        <ChampDate
+        <EChampDate
           libelle={T.fields.dueDate}
           valeur={draft.dueDate}
           {...(draft.dueDate ? { texte: formatLongDate(draft.dueDate) } : {})}
@@ -160,7 +167,7 @@ export function NewObjectiveScreen() {
     <Ecran note={<ReportNote />} testID="ecran-nouvel-objectif">
       <EnTete
         filAriane={
-          <FilAriane
+          <EFilAriane
             miettes={[
               { libelle: SHELL_TEXTS.crumbs.objectives, onPress: () => router.dismissTo(routes.home) },
               { libelle: T.title },
@@ -175,7 +182,7 @@ export function NewObjectiveScreen() {
 
       <Trame>
         <Panneau>
-          <Fil repliques={replies} personne={person} />
+          <EFil repliques={replies} personne={person} />
         </Panneau>
         <Panneau corne="l" style={styles.brouillon}>
           <ETexte variante="repere" couleur="encre-douce">

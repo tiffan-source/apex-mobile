@@ -1,7 +1,18 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { EBouton, ETexte, creerStyles } from '@empreinte-studio/react-native';
+import {
+  EBouton,
+  EComposeur,
+  EFil,
+  EFilAriane,
+  EJournal,
+  ERepli,
+  ETexte,
+  type RepliqueFil,
+  creerStyles,
+} from '@empreinte-studio/react-native';
+import { EProse } from '@empreinte-studio/react-native/prose';
 import {
   journalLines,
   objectiveInvitation,
@@ -23,15 +34,9 @@ import { useAnnouncements, useReport } from '@/state/announcements';
 import { useObjectiveDetail } from '@/state/objectives';
 import { useCurrentUser } from '@/state/session';
 import { useToday } from '@/state/today';
-import { Composeur } from '@/ui/composeur';
 import { Ecran } from '@/ui/ecran';
 import { EnTete } from '@/ui/en-tete';
-import { Fil, type RepliqueFil } from '@/ui/fil';
-import { FilAriane } from '@/ui/fil-ariane';
 import { pas, traits } from '@/ui/fondations';
-import { Journal } from '@/ui/journal';
-import { Prose } from '@/ui/prose';
-import { Repli } from '@/ui/repli';
 import { ReportNote } from '../shell/report-note';
 import { routes } from '../shell/routes';
 import { LoadingLine, NotFound, NotLoaded } from '../shell/screen-states';
@@ -78,7 +83,7 @@ export function AkariScreen({
 
   return (
     <Ecran note={<ReportNote />} testID="ecran-akari">
-      <FilAriane
+      <EFilAriane
         miettes={[{ libelle: SHELL_TEXTS.crumbs.objectives, onPress: () => router.dismissTo(routes.home) }]}
       />
       {notFound ? (
@@ -168,9 +173,9 @@ function AkariConversationScreen({
       id: reply.id,
       auteur: assistant ? 'assistant' : 'personne',
       contenu: reply.journal ? (
-        <Journal lignes={reply.journal} />
+        <EJournal lignes={reply.journal} />
       ) : reply.markdown ? (
-        <Prose texte={reply.text} voix={assistant ? 'voix' : 'corps'} douce={reply.pending} />
+        <EProse texte={reply.text} voix={assistant ? 'voix' : 'corps'} douce={reply.pending} />
       ) : (
         reply.text
       ),
@@ -188,7 +193,7 @@ function AkariConversationScreen({
       suivreLaFin
       libelleRetourFin={T.latest}
       pied={
-        <Composeur
+        <EComposeur
           libelle={T.composer.label}
           indication={T.composer.hint}
           libelleEnvoyer={T.composer.send}
@@ -201,7 +206,7 @@ function AkariConversationScreen({
     >
       <EnTete
         filAriane={
-          <FilAriane
+          <EFilAriane
             miettes={[
               { libelle: SHELL_TEXTS.crumbs.objectives, onPress: () => router.dismissTo(routes.home) },
               {
@@ -219,7 +224,7 @@ function AkariConversationScreen({
         detail={T.intro}
       />
 
-      <Repli
+      <ERepli
         titre={T.arete}
         detail={T.summary(objective.horizon, stages.length, taskTotal)}
         testID="resume-arete"
@@ -251,9 +256,9 @@ function AkariConversationScreen({
             {T.seeArete}
           </EBouton>
         </View>
-      </Repli>
+      </ERepli>
 
-      <Fil
+      <EFil
         repliques={thread}
         statut={status}
         personne={firstName(user?.name, T.personFallback)}

@@ -1,9 +1,9 @@
 import { useState } from 'react';
+import { EFeuille } from '@empreinte-studio/react-native';
 import { NEW_TASK_LEVELS } from '@/domain/objectives/eisenhower';
 import { hasErrors, validateNewTask, type TaskForm } from '@/domain/objectives/forms';
 import { rootIdOf } from '@/domain/objectives/tree';
 import { useObjectiveCommands, useObjectives, useStageOptions } from '@/state/objectives';
-import { Feuille } from '@/ui/feuille';
 import { GoneSheet, LoadingSheet, SheetActions, useCloseSheet } from './sheet-frame';
 import { SHEETS_TEXTS } from './sheets.texts';
 import { TaskFields } from './task-fields';
@@ -43,7 +43,7 @@ function AddTaskForm({ rootId, stageId }: { readonly rootId: string; readonly st
   };
 
   return (
-    <Feuille
+    <EFeuille
       titre={T.addTitle}
       onFermer={close}
       actions={<SheetActions label={SHEETS_TEXTS.add} onConfirm={add} onCancel={close} testID="ajouter" />}
@@ -57,6 +57,6 @@ function AddTaskForm({ rootId, stageId }: { readonly rootId: string; readonly st
         titleHelp={T.help}
         onSubmit={add}
       />
-    </Feuille>
+    </EFeuille>
   );
 }

@@ -1,7 +1,16 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
-import { EBouton, EListe, ETache, ETexte, creerStyles } from '@empreinte-studio/react-native';
+import {
+  EBouton,
+  EFiltres,
+  EListe,
+  EQuadrants,
+  ETache,
+  ETexte,
+  type TuileQuadrant,
+  creerStyles,
+} from '@empreinte-studio/react-native';
 import {
   QUADRANTS,
   QUADRANT_DESCRIPTIONS,
@@ -22,10 +31,8 @@ import { useMatrix, useObjectiveCommands } from '@/state/objectives';
 import { useToday } from '@/state/today';
 import { Ecran } from '@/ui/ecran';
 import { EnTete } from '@/ui/en-tete';
-import { Filtres } from '@/ui/filtres';
 import { pas } from '@/ui/fondations';
 import { MARGE_PANNEAU } from '@/ui/panneau';
-import { Quadrants, type TuileQuadrant } from '@/ui/quadrants';
 import { AppBand } from '../shell/app-band';
 import { ReportNote } from '../shell/report-note';
 import { routes } from '../shell/routes';
@@ -118,7 +125,7 @@ export function MatrixScreen() {
       <EnTete repere={loaded ? `${formatToday(today)} · ${count}` : formatToday(today)} titre={T.title} />
 
       {filterOptions.length > 1 ? (
-        <Filtres
+        <EFiltres
           libelle={T.filters}
           libelleTous={T.allObjectives}
           options={filterOptions}
@@ -150,7 +157,7 @@ export function MatrixScreen() {
 
       {loaded && hasTasks ? (
         <>
-          <Quadrants tuiles={tiles} choisi={open} onChoisir={setOpen} testID="quadrant" />
+          <EQuadrants tuiles={tiles} choisi={open} onChoisir={setOpen} testID="quadrant" />
           <View style={styles.quadrant} role="tabpanel">
             <View style={styles.titreQuadrant}>
               <ETexte variante="section" role="heading">

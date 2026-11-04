@@ -96,7 +96,7 @@ d'accord, matrice, réglages.
 src/
 ├── app/             Les routes d'Expo Router : chacune pose un écran, rien de plus
 ├── features/        Les écrans (une fonctionnalité par dossier), leurs textes (*.texts.ts)
-├── ui/              Les compositions d'interface sur Empreinte, en français (à remonter dans Empreinte)
+├── ui/              La mise en page d'Apex sur Empreinte, en français : l'écran, son en-tête, ses panneaux
 ├── state/           L'état React : TanStack Query, hooks des services, thème, jour courant
 ├── application/     Les services : session, commandes optimistes, file d'écritures, Akari, annonces ; les ports
 ├── domain/          Les règles d'Apex, sans React : objectifs, arête, matrice, Akari, voix, dates
@@ -108,5 +108,5 @@ src/
 - [`docs/architecture.md`](./docs/architecture.md) : les couches, la règle de dépendance, les flux
   de données, la navigation, l'interface.
 - [`docs/plan.md`](./docs/plan.md) : ce qui est repris d'Apex, ce qui diffère, ce qui reste à faire.
-- [`docs/empreinte-amont.md`](./docs/empreinte-amont.md) : ce qui pourrait remonter dans Empreinte.
+- [`docs/empreinte-amont.md`](./docs/empreinte-amont.md) : ce qui vit dans Empreinte, ce qui reste ici.
 - [`docs/adr/`](./docs/adr) : les décisions.

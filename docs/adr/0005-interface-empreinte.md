@@ -1,6 +1,6 @@
 # ADR 0005 — L'interface : Empreinte d'abord, des compositions à remonter
 
-- Statut : accepté
+- Statut : accepté, complété par l'[ADR 0006](./0006-composants-dans-empreinte.md)
 - Date : 2026-10-25
 
 ## Contexte

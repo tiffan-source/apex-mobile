@@ -1,9 +1,9 @@
 import { useState } from 'react';
+import { EFeuille } from '@empreinte-studio/react-native';
 import { hasErrors, toEditTaskInput, validateTaskEdit, type TaskForm } from '@/domain/objectives/forms';
 import type { Task } from '@/domain/objectives/objective';
 import { rootIdOf } from '@/domain/objectives/tree';
 import { useObjectiveCommands, useObjectives, useStageOptions, useTaskItem } from '@/state/objectives';
-import { Feuille } from '@/ui/feuille';
 import { GoneSheet, LoadingSheet, SheetActions, useCloseSheet } from './sheet-frame';
 import { SHEETS_TEXTS } from './sheets.texts';
 import { TaskFields } from './task-fields';
@@ -61,7 +61,7 @@ function EditTaskForm({
   };
 
   return (
-    <Feuille
+    <EFeuille
       titre={T.editTitle}
       onFermer={close}
       actions={
@@ -76,6 +76,6 @@ function EditTaskForm({
         stages={stages}
         {...(shownStageId === null ? { stageHelp: T.placeInStage } : {})}
       />
-    </Feuille>
+    </EFeuille>
   );
 }

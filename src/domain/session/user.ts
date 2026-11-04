@@ -21,11 +21,6 @@ export function identityOf(user: User | null | undefined): string {
   return (user?.name ?? '').trim() || (user?.email ?? '').trim();
 }
 
-/** La première lettre du nom, sinon de l'adresse, en capitale. */
-export function initialOf(user: User | null | undefined): string {
-  return ([...identityOf(user)][0] ?? '').toLocaleUpperCase('fr');
-}
-
 /** Vrai si la session expire dans moins de `marginMs` (ou a déjà expiré). */
 export function expiresSoon(session: Session, now: number, marginMs: number): boolean {
   const expiresAt = Date.parse(session.expiresAt);
