@@ -1,6 +1,6 @@
 # Apex mobile
 
-Apex sur iOS et Android : mener un objectif jusqu'au sommet, pas après pas. L'application reprend les
+Apex sur iOS et Android : mener un objectif jusqu'au sommet. L'application reprend les
 fonctionnalités d'Apex V1 (le client web Angular, dépôt `tiffan-source/apex`) en React Native, sur
 l'API d'**Apex Brain** (dépôt `tiffan-source/apex-brain`) et avec les composants React Native
 d'**Empreinte**, le design system de la suite.
