@@ -1860,6 +1860,58 @@
                         "awaiting-permission"
                       ]
                     },
+                    "activity": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "step": {
+                          "type": "string",
+                          "enum": [
+                            "saving-message",
+                            "thinking",
+                            "checking-permission",
+                            "awaiting-permission",
+                            "reading",
+                            "writing",
+                            "reviewing",
+                            "saving-reply"
+                          ]
+                        },
+                        "elapsedMs": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "round": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "done": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "saving-message",
+                              "thinking",
+                              "checking-permission",
+                              "awaiting-permission",
+                              "reading",
+                              "writing",
+                              "reviewing",
+                              "saving-reply"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "step",
+                        "elapsedMs",
+                        "round",
+                        "done"
+                      ],
+                      "additionalProperties": false
+                    },
                     "pendingToolCall": {
                       "nullable": true,
                       "type": "object",
@@ -1932,6 +1984,7 @@
                     "objectiveId",
                     "value",
                     "status",
+                    "activity",
                     "pendingToolCall",
                     "lastRegisteredMessage",
                     "lastError"
@@ -2068,6 +2121,58 @@
                         "awaiting-permission"
                       ]
                     },
+                    "activity": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "step": {
+                          "type": "string",
+                          "enum": [
+                            "saving-message",
+                            "thinking",
+                            "checking-permission",
+                            "awaiting-permission",
+                            "reading",
+                            "writing",
+                            "reviewing",
+                            "saving-reply"
+                          ]
+                        },
+                        "elapsedMs": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "round": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "done": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "saving-message",
+                              "thinking",
+                              "checking-permission",
+                              "awaiting-permission",
+                              "reading",
+                              "writing",
+                              "reviewing",
+                              "saving-reply"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "step",
+                        "elapsedMs",
+                        "round",
+                        "done"
+                      ],
+                      "additionalProperties": false
+                    },
                     "pendingToolCall": {
                       "nullable": true,
                       "type": "object",
@@ -2140,6 +2245,7 @@
                     "objectiveId",
                     "value",
                     "status",
+                    "activity",
                     "pendingToolCall",
                     "lastRegisteredMessage",
                     "lastError"
@@ -2329,6 +2435,58 @@
                         "awaiting-permission"
                       ]
                     },
+                    "activity": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "step": {
+                          "type": "string",
+                          "enum": [
+                            "saving-message",
+                            "thinking",
+                            "checking-permission",
+                            "awaiting-permission",
+                            "reading",
+                            "writing",
+                            "reviewing",
+                            "saving-reply"
+                          ]
+                        },
+                        "elapsedMs": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "round": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "done": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "saving-message",
+                              "thinking",
+                              "checking-permission",
+                              "awaiting-permission",
+                              "reading",
+                              "writing",
+                              "reviewing",
+                              "saving-reply"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "step",
+                        "elapsedMs",
+                        "round",
+                        "done"
+                      ],
+                      "additionalProperties": false
+                    },
                     "pendingToolCall": {
                       "nullable": true,
                       "type": "object",
@@ -2401,6 +2559,7 @@
                     "objectiveId",
                     "value",
                     "status",
+                    "activity",
                     "pendingToolCall",
                     "lastRegisteredMessage",
                     "lastError"

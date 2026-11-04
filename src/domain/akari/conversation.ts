@@ -6,14 +6,14 @@ import {
   type AkariInvitation,
   type ConversationMessage,
   type PermissionRequest,
-  type WorkflowValue,
+  type WorkflowActivity,
 } from './assistant';
 import { typeset, typesetTexts } from '../shared/typography';
 
 /*
  * La conversation avec Akari, telle que l'écran la montre : les messages (dans l'ordre, dédoublonnés), le
  * message que la personne vient d'envoyer (optimiste, jusqu'à ce que le workflow l'enregistre), puis
- * l'invitation d'Akari ou sa demande d'accord, et la ligne d'état.
+ * l'invitation d'Akari, le journal du tour en cours, sa demande d'accord, et la ligne d'état.
  */
 
 /** Qui parle : la personne, ou Akari. */
@@ -105,7 +105,7 @@ export function upsertRegisteredMessage(
 /** Une action sous une réplique. */
 export type ReplyAction = { readonly id: string; readonly label: string };
 
-/** Une réplique du fil : un message, l'invitation d'Akari, ou sa demande d'accord. */
+/** Une réplique du fil : un message, l'invitation d'Akari, le journal de son tour, ou sa demande d'accord. */
 export type Reply = {
   readonly id: string;
   readonly speaker: Speaker;
@@ -118,17 +118,24 @@ export type Reply = {
   readonly actions: readonly ReplyAction[];
   /** L'invitation qu'accepte son bouton. */
   readonly invitation?: AkariInvitation;
+  /** Les lignes du journal du tour en cours. */
+  readonly journal?: readonly string[];
 };
 
 export const INVITATION_REPLY_ID = 'akari-invitation';
+export const JOURNAL_REPLY_ID = 'akari-journal';
 export const PERMISSION_REPLY_ID = 'akari-demande';
 export const ACCEPT_ACTION = 'accepter';
 export const DECLINE_ACTION = 'pas-maintenant';
 
-/** Les répliques : les messages, puis l'invitation d'Akari ou sa demande d'accord, avec leurs boutons. */
+/**
+ * Les répliques : les messages, puis l'invitation d'Akari, le journal du tour en cours et sa demande d'accord,
+ * avec leurs boutons.
+ */
 export function buildReplies(input: {
   messages: readonly ThreadMessage[];
   invitation: AkariInvitation | null;
+  journal?: readonly string[];
   permission: PermissionRequest | null;
   stageTitleOf?: (id: string) => string | undefined;
 }): Reply[] {
@@ -149,6 +156,17 @@ export function buildReplies(input: {
       pending: false,
       actions: [{ id: ACCEPT_ACTION, label: input.invitation.action }],
       invitation: input.invitation,
+    });
+  }
+  if (input.journal?.length) {
+    replies.push({
+      id: JOURNAL_REPLY_ID,
+      speaker: 'akari',
+      text: input.journal.join(' '),
+      markdown: false,
+      pending: false,
+      actions: [],
+      journal: input.journal,
     });
   }
   if (input.permission) {
@@ -184,12 +202,12 @@ export function statusLine(input: {
   loadingHistory: boolean;
   awaitingPermission: boolean;
   processing: boolean;
-  value: WorkflowValue | undefined;
+  activity: WorkflowActivity | null | undefined;
   interrupted: boolean;
 }): string {
   if (input.loadingHistory) return AKARI_TEXTS.readingHistory;
   if (input.awaitingPermission) return AKARI_TEXTS.awaitingPermission;
-  if (input.processing) return processingPhrase(input.value);
+  if (input.processing) return processingPhrase(input.activity);
   if (input.interrupted) return AKARI_TEXTS.lastTurnInterrupted;
   return '';
 }

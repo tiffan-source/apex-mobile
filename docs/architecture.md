@@ -123,6 +123,13 @@ la personne accepte une étape ou un pas, `AkariWritesWatcher` surveille la fin 
 l'écran Akari a été quitté (une lecture qui n'aboutit pas pour une raison passagère ne l'arrête pas),
 puis fait relire les objectifs : l'ajout arrive sur l'arête.
 
+Ce que fait Akari vient de `activity`, des codes publics d'Apex Brain qui ne disent rien de la machine du
+workflow : le client ne lit pas `value`. `domain/akari/assistant.ts` a une phrase par code pour la ligne
+d'état (`processingPhrase` : le numéro du tour de boucle, puis « Akari réfléchit encore… » quand un appel
+à l'IA dure) et une ligne par code pour le journal du tour (`journalLines`), posé au-dessus de la ligne
+d'état. Le journal vient de `activity.done`, qui garde les étapes trop brèves pour qu'une interrogation
+chaque seconde les voie passer. Un code que ce client ne connaît pas garde une phrase par défaut.
+
 ### Réussites et signalements
 
 Pas de toast (cahier de migration d'Apex, § 7) : `AnnouncementCenter.announce()` dit une réussite aux

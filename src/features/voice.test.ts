@@ -1,3 +1,10 @@
+import {
+  AKARI_JOURNAL,
+  AKARI_STATUS,
+  AKARI_STILL_THINKING,
+  AKARI_TAKING_LONGER,
+  processingPhrase,
+} from '@/domain/akari/assistant';
 import { collectTexts, voiceIssues } from '@/domain/shared/voice';
 import { AKARI_SCREEN_TEXTS } from './akari/akari.texts';
 import { AUTH_TEXTS } from './auth/auth.texts';
@@ -29,11 +36,16 @@ const samples = [
   MATRIX_TEXTS.filterChosen('Apprendre le piano', '1 pas'),
   SHEETS_TEXTS.task.quadrant('maintenant'),
   SETTINGS_TEXTS.version('0.1.0'),
+  processingPhrase({ step: 'reviewing', elapsedMs: 0, round: 3, done: [] }),
+  AKARI_STILL_THINKING,
+  AKARI_TAKING_LONGER,
 ];
 
 const texts = [
   ...collectTexts([
+    AKARI_JOURNAL,
     AKARI_SCREEN_TEXTS,
+    AKARI_STATUS,
     AUTH_TEXTS,
     MATRIX_TEXTS,
     NEW_OBJECTIVE_TEXTS,

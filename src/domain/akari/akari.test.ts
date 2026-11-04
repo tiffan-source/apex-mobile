@@ -1,14 +1,24 @@
 import {
+  AKARI_JOURNAL,
+  AKARI_JOURNAL_LINES,
+  AKARI_LONG_WAIT_MS,
   AKARI_STATUS,
+  AKARI_STILL_THINKING,
+  AKARI_TAKING_LONGER,
+  AKARI_THINKING,
+  AKARI_VERY_LONG_WAIT_MS,
   CREATE_STAGE_TOOL,
   CREATE_TASK_TOOL,
-  isExecutingTool,
   isWriteTool,
+  isWriting,
+  journalLines,
   objectiveInvitation,
   permissionPrompt,
   permissionRequestOf,
   processingPhrase,
   stageInvitation,
+  type WorkflowActivity,
+  type WorkflowActivityStep,
 } from './assistant';
 import { NBSP, typeset } from '../shared/typography';
 import {
@@ -17,6 +27,7 @@ import {
   DECLINE_ACTION,
   INVITATION_REPLY_ID,
   PERMISSION_REPLY_ID,
+  JOURNAL_REPLY_ID,
   buildReplies,
   pendingMessage,
   statusLine,
@@ -26,14 +37,99 @@ import {
 
 const USER = 'u1';
 const at = (minute: number) => new Date(2026, 9, 19, 10, minute).toISOString();
+const activity = (
+  step: WorkflowActivityStep,
+  overrides: Partial<WorkflowActivity> = {},
+): WorkflowActivity => ({ step, elapsedMs: 0, round: 1, done: [], ...overrides });
 
 describe('le workflow d’Akari', () => {
-  it('dit ce que fait Akari, étape par étape', () => {
-    expect(processingPhrase('SendingPromptToAI')).toBe(AKARI_STATUS.SendingPromptToAI);
-    expect(processingPhrase({ ExecutingAllTool: 'ExecutingTool' })).toBe(AKARI_STATUS.ExecutingAllTool);
-    expect(processingPhrase('Inconnue')).toBe('Akari réfléchit…');
-    expect(isExecutingTool({ ExecutingAllTool: 'ExecutingTool' })).toBe(true);
-    expect(isExecutingTool({ ExecutingAllTool: 'WaitingForUserPermission' })).toBe(false);
+  it.each([
+    ['saving-message', 'Akari note ton message…'],
+    ['thinking', 'Akari réfléchit…'],
+    ['checking-permission', "Akari vérifie s'il lui faut ton accord…"],
+    ['reading', 'Akari regarde ton objectif…'],
+    ['writing', 'Akari ajoute ce que tu as accepté…'],
+    ['saving-reply', 'Akari écrit sa réponse…'],
+  ] as const)('%s : « %s »', (step, phrase) => {
+    expect(processingPhrase(activity(step))).toBe(phrase);
+  });
+
+  it('numérote les tours de boucle', () => {
+    expect(processingPhrase(activity('reviewing', { round: 2 }))).toBe('Akari fait le point, 2e tour…');
+    expect(processingPhrase(activity('reviewing', { round: 3 }))).toBe('Akari fait le point, 3e tour…');
+    // Un tour commencé avant le journal ne sait pas où il en est : la phrase ne donne pas de numéro.
+    expect(processingPhrase(activity('reviewing', { round: 0 }))).toBe('Akari fait le point…');
+  });
+
+  it('dit qu’Akari réfléchit encore quand un appel à l’IA dure', () => {
+    const waited = (step: WorkflowActivityStep, elapsedMs: number) =>
+      processingPhrase(activity(step, { round: 2, elapsedMs }));
+
+    expect(waited('thinking', AKARI_LONG_WAIT_MS - 1)).toBe('Akari réfléchit…');
+    expect(waited('thinking', AKARI_LONG_WAIT_MS)).toBe(AKARI_STILL_THINKING);
+    expect(waited('reviewing', AKARI_LONG_WAIT_MS)).toBe(AKARI_STILL_THINKING);
+    expect(waited('thinking', AKARI_VERY_LONG_WAIT_MS)).toBe(AKARI_TAKING_LONGER);
+    expect(waited('reviewing', AKARI_VERY_LONG_WAIT_MS)).toBe(AKARI_TAKING_LONGER);
+    expect(waited('writing', AKARI_VERY_LONG_WAIT_MS)).toBe(AKARI_STATUS.writing);
+  });
+
+  it('garde une phrase par défaut pour un code que ce client ne connaît pas, ou sans activité', () => {
+    expect(processingPhrase(activity('nouveau-code' as WorkflowActivityStep))).toBe(AKARI_THINKING);
+    expect(processingPhrase(null)).toBe(AKARI_THINKING);
+    expect(processingPhrase(undefined)).toBe(AKARI_THINKING);
+  });
+
+  it('reconnaît l’écriture de ce que la personne a accepté', () => {
+    const processing = (step: WorkflowActivityStep) =>
+      ({ status: 'processing', activity: activity(step) }) as const;
+
+    expect(isWriting(processing('writing'))).toBe(true);
+    expect(isWriting(processing('reading'))).toBe(false);
+    expect(isWriting(processing('awaiting-permission'))).toBe(false);
+    expect(isWriting({ status: 'ready', activity: null })).toBe(false);
+  });
+
+  it('attend encore un tour qui ne dit pas ce qu’il fait', () => {
+    expect(isWriting({ status: 'processing', activity: null })).toBe(true);
+    expect(isWriting({ status: 'awaiting-permission', activity: null })).toBe(false);
+  });
+
+  it('écrit le journal du tour, dans l’ordre', () => {
+    expect(
+      journalLines(
+        activity('reviewing', { done: ['saving-message', 'thinking', 'checking-permission', 'reading'] }),
+      ),
+    ).toEqual([
+      "J'ai noté ton message.",
+      "J'ai réfléchi à ta demande.",
+      "J'ai vérifié s'il me fallait ton accord.",
+      "J'ai regardé ton objectif.",
+    ]);
+    expect(Object.keys(AKARI_JOURNAL).sort()).toEqual(Object.keys(AKARI_STATUS).sort());
+  });
+
+  it('ne garde que les dernières lignes d’un long tour', () => {
+    const done: WorkflowActivityStep[] = [
+      'saving-message',
+      'thinking',
+      'checking-permission',
+      'reading',
+      'reviewing',
+      'checking-permission',
+      'writing',
+    ];
+    const lines = journalLines(activity('reviewing', { done }));
+
+    expect(lines).toHaveLength(AKARI_JOURNAL_LINES);
+    expect(lines.at(-1)).toBe(AKARI_JOURNAL.writing);
+    expect(lines).not.toContain(AKARI_JOURNAL['saving-message']);
+  });
+
+  it('passe un code que ce client ne connaît pas, et n’a rien à dire sans activité', () => {
+    expect(
+      journalLines(activity('reviewing', { done: ['nouveau-code' as WorkflowActivityStep, 'reading'] })),
+    ).toEqual([AKARI_JOURNAL.reading]);
+    expect(journalLines(null)).toEqual([]);
   });
 
   it('lit ce qu’Akari demande d’ajouter', () => {
@@ -140,17 +236,34 @@ describe('la conversation', () => {
     expect(message.text).toBe('On regarde l’étape « Fractionné » ?');
   });
 
+  it('pose le journal après les messages, avant la demande d’accord', () => {
+    const replies = buildReplies({
+      messages: [pendingMessage('Ajoute un pas', 1)],
+      invitation: null,
+      journal: ["J'ai noté ton message."],
+      permission: { kind: 'stage', title: 'Portfolio', parentId: 'o' },
+    });
+
+    expect(replies.map((reply) => reply.id)).toEqual([
+      expect.any(String),
+      JOURNAL_REPLY_ID,
+      PERMISSION_REPLY_ID,
+    ]);
+    expect(replies[1]).toMatchObject({ speaker: 'akari', journal: ["J'ai noté ton message."], actions: [] });
+    expect(buildReplies({ messages: [], invitation: null, journal: [], permission: null })).toEqual([]);
+  });
+
   it('écrit la ligne d’état', () => {
     const base = {
       loadingHistory: false,
       awaitingPermission: false,
       processing: false,
-      value: undefined,
+      activity: undefined,
       interrupted: false,
     };
     expect(statusLine({ ...base, loadingHistory: true })).toBe(AKARI_TEXTS.readingHistory);
     expect(statusLine({ ...base, awaitingPermission: true })).toBe(AKARI_TEXTS.awaitingPermission);
-    expect(statusLine({ ...base, processing: true, value: 'RegisteringAIResponseInConversation' })).toBe(
+    expect(statusLine({ ...base, processing: true, activity: activity('saving-reply') })).toBe(
       'Akari écrit sa réponse…',
     );
     expect(statusLine({ ...base, interrupted: true })).toBe(AKARI_TEXTS.lastTurnInterrupted);
