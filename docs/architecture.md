@@ -110,8 +110,7 @@ ne dépend de cet ordre.
 **Un retour en arrière rend ce que le serveur a accepté.** Tant que des gestes sont en route sur un pas
 ou un objectif, `PendingChanges` garde ce que le serveur en a : l'état d'avant le premier geste, plus les
 changements acceptés. Quand le dernier geste en route est réglé, l'élément montre cet état : cocher puis
-décocher hors connexion ramène le pas tel qu'il était, et un déplacement dans la matrice n'enregistre
-jamais au passage le titre d'une modification refusée. Une étape dont la création n'aboutit pas
+décocher hors connexion ramène le pas tel qu'il était. Une étape dont la création n'aboutit pas
 disparaît avec les pas créés dessus ; un pas déjà enregistré qu'on y avait rangé revient à sa place.
 
 **Une session fermée ferme sa file.** Ce qui attend encore n'est jamais envoyé avec le jeton d'une autre
@@ -170,7 +169,7 @@ thème et les polices ne sont pas prêts.
   `EBouton` (sceau, trait, nu), `ECarte`, `EPas`, `EListe`/`ETache`, `EChamp`/`ESaisie`, `ENote`,
   `EMarque`, `EIcone`, `EEmpreinte`, le gardien du sceau (`GardienSceau`, `useSceau`). Les couleurs viennent du thème (`useTheme`),
   Jour ou Nuit ; aucune couleur n'est écrite en dur.
-- **Ce qui manque à Empreinte React Native 0.3.1** est composé dans `src/ui`, dans sa langue :
+- **Ce qui manque à Empreinte React Native 0.4** est composé dans `src/ui`, dans sa langue :
   `Feuille`, `Deroulant`, `Menu`, `Selection`, `Filtres`, `BarreOnglets`, `Quadrants`, `Arete`, `Fil`,
   `Composeur`, `Prose`, `Repli`, `FilAriane`, `ChampDate`, `ListeChoix`, `Ecran`, `EnTete`, `Panneau`.
 - **La voix** : les textes des écrans passent par `voiceIssues` (`features/voice.test.ts`) — tutoiement,

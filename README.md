@@ -44,7 +44,7 @@ npm install
 ```
 
 > Le fichier `package-lock.json` a été écrit sans accès à GitHub Packages : ses trois entrées
-> `@empreinte-studio/*` (0.3.1) n'ont pas encore de `resolved` ni d'`integrity`. Le premier
+> `@empreinte-studio/*` (0.4.0) n'ont pas encore de `resolved` ni d'`integrity`. Le premier
 > `npm install` fait avec le jeton les complète : enregistre le fichier qu'il réécrit.
 
 ## Lancer

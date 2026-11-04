@@ -12,7 +12,7 @@ diffère du web et pourquoi, et ce qui reste à faire. Les décisions sont dans 
   stores (`chore/stores`), dont la file d'écritures et les gestes optimistes sont repris.
 - **Contrat** : `docs/api.md` d'Apex Brain et son document OpenAPI, copié dans
   `openapi/apex-brain.openapi.json`.
-- **Identité** : Empreinte (tokens, `noyau`, composants React Native 0.3.1), et le kit CSS d'Empreinte
+- **Identité** : Empreinte (tokens, `noyau`, composants React Native 0.4), et le kit CSS d'Empreinte
   pour ce que les composants React Native n'ont pas encore (menus, feuilles, matrice, conversation…).
 
 ## 2. Ce qui est repris d'Apex V1
@@ -24,7 +24,7 @@ diffère du web et pourquoi, et ce qui reste à faire. Les décisions sont dans 
 | Nouvel objectif              | Phase « brouillon » d'Akari, brouillon en direct, « Je m'y engage » puis Akari                            | Pareil ; l'horizon se choisit dans le calendrier du téléphone                                                   |
 | L'arête `/objectifs/:id`     | L'arête (repli « Faites » au-delà de 8 étapes), étape choisie et ses pas, pas sans étape, feuilles        | Pareil ; l'arête est dressée (verticale, noms entiers), l'étape choisie s'ouvre dessous et vient à l'écran      |
 | Akari `/objectifs/:id/akari` | Conversation en Markdown, invitation, demande d'accord, ajouts sur l'arête, zone de réponse               | Pareil ; le résumé de l'arête est un repli en tête de la conversation                                           |
-| La matrice `/matrice`        | Quatre quadrants, filtres par objectif, cases ; aucun pas ne s'y déplace                                  | Vue d'ensemble des quatre panneaux, le quadrant ouvert dessous ; aucun pas ne s'y déplace                       |
+| La matrice `/matrice`        | Retirée en attendant que l'API rende le quadrant d'un pas                                                 | Vue d'ensemble des quatre panneaux, le quadrant ouvert dessous ; aucun pas ne s'y déplace                       |
 | Réglages                     | Menu de la coque : le thème                                                                               | Feuille : la personne, le thème, la déconnexion                                                                 |
 | Annonces                     | `AnnoncesStore` : réussites dites aux lecteurs d'écran, signalements dans une note d'Akari                | `AnnouncementCenter`, mêmes phrases ; VoiceOver et TalkBack                                                     |
 
@@ -47,13 +47,13 @@ joue ce rôle), les statistiques, les toasts.
 ## 4. État
 
 - Tous les écrans, feuilles et gestes de la V1, sur le contrat d'Apex Brain.
-- 529 tests (Jest), dont les parcours de chaque écran sur les vraies routes, en iOS et en Android ;
+- 601 tests (Jest), dont les parcours de chaque écran sur les vraies routes, en iOS et en Android ;
   lint (avec la règle de dépendance), types (avec les routes typées), format.
 - Les bundles iOS et Android se construisent (`npm run export`) ; `expo prebuild` produit les projets
   natifs (icônes, écran de lancement Jour et Nuit).
 - Vérifié dans l'aperçu web, à 375 points, en Jour et en Nuit, contre un Apex Brain en mémoire :
   connexion, objectifs, arête, feuilles, sélection, Akari (Markdown, invitation, accord, ajout), matrice
-  (filtres, menu), nouvel objectif, réglages.
+  (filtres), nouvel objectif, réglages.
 
 ## 5. Reste à faire
 
@@ -80,6 +80,7 @@ joue ce rôle), les statistiques, les toasts.
 - Reporter dans le client web la règle du retour en arrière (`PendingChanges`) : ses stores remettent la
   valeur d'avant le geste, et cocher puis décocher hors connexion y laisse le pas coché alors que la base
   ne l'est pas.
-- Ce qui attend Apex Brain, comme pour le web : laisser filer ou supprimer un objectif, une étape ou un
-  pas ; la pause et la reprise ; les domaines de vie ; les échéances des pas ; les empreintes et les
-  paliers.
+- Supprimer un objectif, une étape ou un pas : Apex Brain le permet (`DELETE`), le geste manque à
+  l'application, et le contrat copié ici ne porte pas encore ces deux routes.
+- Ce qui attend Apex Brain, comme pour le web : laisser filer un objectif, une étape ou un pas ; la
+  pause et la reprise ; les domaines de vie ; les échéances des pas ; les empreintes et les paliers.
