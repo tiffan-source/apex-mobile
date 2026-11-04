@@ -24,7 +24,7 @@ diffère du web et pourquoi, et ce qui reste à faire. Les décisions sont dans 
 | Nouvel objectif              | Phase « brouillon » d'Akari, brouillon en direct, « Je m'y engage » puis Akari                                                   | Pareil ; l'horizon se choisit dans le calendrier du téléphone                                                   |
 | L'arête `/objectifs/:id`     | L'arête (repli « Faites » au-delà de 8 étapes), étape choisie et ses pas, pas sans étape, feuilles                               | Pareil ; l'arête est dressée (verticale, noms entiers), l'étape choisie s'ouvre dessous et vient à l'écran      |
 | Akari `/objectifs/:id/akari` | Conversation en Markdown, invitation, demande d'accord, ajouts sur l'arête, zone de réponse                                      | Pareil ; le résumé de l'arête est un repli en tête de la conversation                                           |
-| La matrice `/matrice`        | Quatre quadrants, filtres par objectif, cases, glisser-déposer et « Déplacer vers… »                                             | Vue d'ensemble des quatre panneaux, le quadrant ouvert dessous ; « Déplacer vers… » seulement                   |
+| La matrice `/matrice`        | Quatre quadrants, filtres par objectif, cases ; aucun pas ne s'y déplace                                                         | Vue d'ensemble des quatre panneaux, le quadrant ouvert dessous ; aucun pas ne s'y déplace                       |
 | Réglages                     | Menu de la coque : le thème                                                                                                      | Feuille : la personne, le thème, la déconnexion                                                                 |
 | Annonces                     | `AnnoncesStore` : réussites dites aux lecteurs d'écran, signalements dans une note d'Akari                                       | `AnnouncementCenter`, mêmes phrases ; VoiceOver et TalkBack                                                     |
 
@@ -33,9 +33,6 @@ joue ce rôle), les statistiques, les toasts.
 
 ## 3. Ce qui diffère, et pourquoi
 
-- **La matrice sans glisser-déposer.** Sur un téléphone, glisser un pas bloquerait le défilement (le
-  web règle un délai au toucher pour la même raison). « Déplacer vers… » fait la même chose en un geste
-  accessible.
 - **Les feuilles sont des routes** (`/objectifs/:id/modifier`, `/etapes/:id/nouveau-pas`…) : le geste
   de retour d'Android les ferme, et un lien peut les ouvrir, comme un écran.
 - **Retirer un horizon ou une échéance** est possible : Apex Brain accepte `dueDate: null`. Le web le

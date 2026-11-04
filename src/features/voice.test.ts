@@ -25,7 +25,6 @@ const samples = [
   AKARI_SCREEN_TEXTS.summary("Jusqu'en mai", 4, 13),
   AKARI_SCREEN_TEXTS.stageTasks(2),
   AKARI_SCREEN_TEXTS.looseTasks(1),
-  MATRIX_TEXTS.moveLabel('Sortie de 30 minutes'),
   MATRIX_TEXTS.filterChosen('Apprendre le piano', '1 pas'),
   SHEETS_TEXTS.task.quadrant('maintenant'),
   SETTINGS_TEXTS.version('0.1.0'),

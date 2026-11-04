@@ -1,6 +1,5 @@
-import { fireEvent, screen, waitFor } from 'expo-router/testing-library';
+import { fireEvent, screen } from 'expo-router/testing-library';
 import { createTestApp, renderApp, type TestApp } from '@/testing/test-app';
-import { typeset } from '@/domain/shared/typography';
 
 function twoObjectives(app: TestApp) {
   app.objectives.seedObjective({ id: 'o1', title: 'Courir un semi-marathon' });
@@ -44,28 +43,13 @@ describe('La matrice', () => {
     expect(screen.queryByRole('checkbox', { name: 'Sortie de 30 minutes' })).not.toBeOnTheScreen();
   });
 
-  it('déplace un pas vers un autre quadrant', async () => {
+  it('ne propose pas de déplacer un pas : il reste là où ses niveaux le rangent', async () => {
     const app = createTestApp();
     twoObjectives(app);
     await renderApp(app, '/matrice');
 
-    await fireEvent.press(
-      await screen.findByRole('button', { name: 'Déplacer « Sortie de 30 minutes » vers…' }),
-    );
-    await fireEvent.press(await screen.findByRole('menuitem', { name: 'À planifier' }));
-
-    await waitFor(() =>
-      expect(app.objectives.tasks.find((task) => task.id === 't1')).toMatchObject({
-        importance: 4,
-        urgency: 2,
-      }),
-    );
-    expect(app.announcer.said.map((item) => item.text)).toContain(
-      typeset('Ce pas passe dans « À planifier ».'),
-    );
-    expect(
-      await screen.findByRole('tab', { name: 'Maintenant, Important · urgent, 0 pas' }),
-    ).toBeOnTheScreen();
+    expect(await screen.findByRole('checkbox', { name: 'Sortie de 30 minutes' })).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: /Déplacer/ })).not.toBeOnTheScreen();
   });
 
   it('filtre par objectif', async () => {

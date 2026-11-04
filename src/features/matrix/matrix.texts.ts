@@ -9,6 +9,5 @@ export const MATRIX_TEXTS = typesetTexts({
   loading: 'Chargement de tes pas…',
   loadFailed: 'Tes pas ne sont pas chargés. Vérifie ta connexion, puis recharge.',
   emptyQuadrant: "Aucun pas ici pour l'instant.",
-  moveLabel: (title: string) => `Déplacer « ${title} » vers…`,
   filterChosen: (name: string, count: string) => `${name} · ${count}`,
 } as const);

@@ -1,11 +1,5 @@
-import { levelsForQuadrant, type Quadrant } from '@/domain/objectives/eisenhower';
 import type { CreateObjectiveInput, EditObjectiveInput, EditTaskInput } from '@/domain/objectives/forms';
-import {
-  SUCCESS_ANNOUNCEMENTS,
-  failureReport,
-  taskMovedAnnouncement,
-  type FailedAction,
-} from '@/domain/objectives/messages';
+import { SUCCESS_ANNOUNCEMENTS, failureReport, type FailedAction } from '@/domain/objectives/messages';
 import type { Objective, Task } from '@/domain/objectives/objective';
 import {
   addObjective,
@@ -220,37 +214,6 @@ export class ObjectiveCommands {
       (result) => this.settleTask(taskId, accepted(result) ? change : null),
     );
     this.tell(sent, 'toggleTask', done ? SUCCESS_ANNOUNCEMENTS.taskDone : SUCCESS_ANNOUNCEMENTS.taskUndone);
-  }
-
-  /**
-   * Déplace un pas vers un quadrant de la matrice : seules l'importance et l'urgence qui doivent changer
-   * changent (`levelsForQuadrant`), par la modification du pas.
-   */
-  async moveTaskToQuadrant(taskId: string, quadrant: Quadrant): Promise<void> {
-    const { cache, gateway, writes } = this.deps;
-    const id = writes.resolve(taskId);
-    const shown = findTask(cache.read(), id);
-    if (!shown) return;
-    const levels = levelsForQuadrant(shown, quadrant);
-    if (levels.importance === shown.importance && levels.urgency === shown.urgency) return;
-    const change = (task: Task): Task => ({ ...task, ...levels });
-    this.tasks.begin(id, shown);
-    cache.update((snapshot) => updateTask(snapshot, id, change));
-
-    const sent = await this.write(
-      async () => {
-        const target = writes.resolve(taskId);
-        // Le titre et l'étape que le serveur a déjà : la modification ne change que les niveaux, jamais elle
-        // n'enregistre au passage la valeur d'un geste refusé.
-        const base = this.tasks.confirmed(target) ?? shown;
-        const objectiveId = writes.resolve(base.objectiveId);
-        return isTemporaryId(target) || isTemporaryId(objectiveId)
-          ? SKIPPED
-          : this.request(() => gateway.editTask(target, { title: base.title, objectiveId, ...levels }));
-      },
-      (result) => this.settleTask(taskId, accepted(result) ? change : null),
-    );
-    this.tell(sent, 'moveTask', taskMovedAnnouncement(quadrant));
   }
 
   /** La session a pris fin : les gestes en route sont oubliés. */
