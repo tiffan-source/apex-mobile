@@ -21,6 +21,7 @@ export class HttpObjectivesGateway implements ObjectivesGateway {
         why: objective.why,
         dueDate: objective.dueDate,
         parentId: objective.parentObjective,
+        done: objective.done,
       })),
       tasks: data.tasks.map((task) => ({
         id: task.id,

@@ -12,6 +12,7 @@ const objective = (id: string, title: string, parentId: string | null = null): O
   description: '',
   dueDate: null,
   parentId,
+  done: false,
 });
 
 const task = (id: string, objectiveId: string, importance: number, urgency: number, done = false): Task => ({

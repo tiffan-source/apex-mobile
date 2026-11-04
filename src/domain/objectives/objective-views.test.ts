@@ -3,20 +3,13 @@ import type { Objective, Task } from './objective';
 import { cardProgress, objectivesSummary, toObjectiveCard, toObjectiveCards } from './objective-card';
 import {
   UNTITLED_STAGE,
+  foldedDoneStageId,
   openStageId,
   stageName,
   stageOptions,
   toObjectiveDetail,
-  areteDetail,
 } from './objective-detail';
-import {
-  EMPTY_STAGE_DETAIL,
-  isAccomplished,
-  nextTaskOf,
-  stageDetail,
-  stageStates,
-  taskStates,
-} from './progress';
+import { EMPTY_STAGE_DETAIL, stageDetail } from './progress';
 
 /* Les cas du client web (`objective-view.mapper.spec.ts`), pour que les deux clients lisent l'arête pareil. */
 
@@ -27,6 +20,7 @@ const objective = (
   title: string,
   parentId: string | null = null,
   dueDate: string | null = null,
+  done = false,
 ): Objective => ({
   id,
   title,
@@ -34,6 +28,7 @@ const objective = (
   description: '',
   dueDate,
   parentId,
+  done,
 });
 
 let taskCounter = 0;
@@ -77,71 +72,22 @@ describe('formatHorizon', () => {
   });
 });
 
-describe('états des étapes et des pas', () => {
-  it('faite (au moins un pas, tous faits), puis une seule en cours, puis à venir', () => {
-    expect(
-      stageStates([
-        [task('a', true), task('a', true)],
-        [task('b', true), task('b', false)],
-        [task('c', false)],
-        [],
-      ]),
-    ).toEqual(['faite', 'en-cours', 'a-venir', 'a-venir']);
-  });
-
-  it("une étape sans pas n'est pas faite : elle peut être en cours", () => {
-    expect(stageStates([[], [task('b', false)]])).toEqual(['en-cours', 'a-venir']);
-  });
-
-  it("une étape faite reste faite même après l'étape en cours", () => {
-    expect(stageStates([[task('a', false)], [task('b', true)]])).toEqual(['en-cours', 'faite']);
-  });
-
-  it("dans l'étape en cours, le premier pas non fait est en cours ; ailleurs, aucun", () => {
-    expect(taskStates([task('s', true), task('s', false), task('s', false)], 'en-cours')).toEqual([
-      'fait',
-      'en-cours',
-      'a-venir',
-    ]);
-    expect(taskStates([task('s', false), task('s', true)], 'a-venir')).toEqual(['a-venir', 'fait']);
-  });
-
-  it("compte ce qui est fait d'abord, et écrit sur l'arête un texte court", () => {
-    expect(stageDetail({ done: 4, inProgress: true, upcoming: 2 })).toBe('4 pas faits · 3 à venir');
-    expect(stageDetail({ done: 4, inProgress: false, upcoming: 0 })).toBe('4 pas faits · étape accomplie');
-    expect(stageDetail({ done: 0, inProgress: false, upcoming: 0 })).toBe(EMPTY_STAGE_DETAIL);
-    expect(areteDetail('en-cours', { done: 4, inProgress: true, upcoming: 3 })).toBe('4 pas faits');
-    expect(areteDetail('en-cours', { done: 1, inProgress: true, upcoming: 0 })).toBe('1 pas fait');
-    expect(areteDetail('faite', { done: 4, inProgress: false, upcoming: 0 })).toBeUndefined();
-  });
-});
-
-describe('prochain pas et objectif accompli', () => {
-  it("prend le premier pas non fait de l'étape en cours, sinon de l'objectif", () => {
-    const stage = [task('s', true), task('s', false, 'Courir 8 km')];
-    const all = [task('o', false, 'Acheter des chaussures'), ...stage];
-    expect(nextTaskOf(stage, all)?.title).toBe('Courir 8 km');
-    expect(nextTaskOf(null, [task('o', true), task('o', false, 'Acheter des chaussures')])?.title).toBe(
-      'Acheter des chaussures',
-    );
-    expect(nextTaskOf(null, [task('o', true)])).toBeNull();
-  });
-
-  it('accompli : au moins un pas, et tous faits', () => {
-    expect(isAccomplished([])).toBe(false);
-    expect(isAccomplished([task('o', true), task('o', false)])).toBe(false);
-    expect(isAccomplished([task('o', true), task('o', true)])).toBe(true);
+describe('détails lisibles', () => {
+  it("compte ce qui est fait d'abord (legendeProgression d'Empreinte)", () => {
+    expect(stageDetail({ done: 4, toDo: 3 })).toBe('4 pas faits · 3 à faire');
+    expect(stageDetail({ done: 4, toDo: 0 })).toBe('4 pas faits');
+    expect(stageDetail({ done: 0, toDo: 0 })).toBe(EMPTY_STAGE_DETAIL);
   });
 });
 
 describe('cartes et vue détaillée', () => {
   const objectives = [
     objective('semi', 'Courir un semi-marathon en mai', null, new Date(2026, 4, 31).toISOString()),
-    objective('programme', 'Programme', 'semi'),
+    objective('programme', 'Programme', 'semi', null, true),
     objective('endurance', 'Endurance', 'semi', new Date(2026, 10, 1).toISOString()),
     objective('sorties', 'Sorties longues', 'endurance'),
     objective('mental', 'Mental', 'semi'),
-    objective('guitare', 'Jouer trois morceaux'),
+    objective('guitare', 'Jouer trois morceaux', null, null, true),
   ];
   const programme = [task('programme', true), task('programme', true)];
   const endurance = [
@@ -154,67 +100,64 @@ describe('cartes et vue détaillée', () => {
   const guitare = [task('guitare', true)];
   const tasks = [...loose, ...programme, ...endurance, ...deep, ...guitare];
 
-  it("la carte compte les étapes, les pas, et nomme l'étape en cours", () => {
+  it('la carte compte les étapes faites, celles à faire et les pas', () => {
     const card = toObjectiveCard(objectives[0] as Objective, objectives, tasks, NOW);
     expect(card).toEqual({
       id: 'semi',
       title: 'Courir un semi-marathon en mai',
       why: 'Pour me prouver que je peux tenir six mois.',
       horizon: "Jusqu'en mai",
-      stageProgress: { done: 1, inProgress: true, upcoming: 1, inProgressName: 'Endurance' },
+      stageProgress: { done: 1, toDo: 2 },
       stageCount: 3,
       taskCount: { done: 4, total: 7 },
-      nextTask: endurance[2],
       accomplished: false,
     });
   });
 
-  it("sans étape en cours, la carte n'a pas de nom en cours", () => {
+  it("un objectif sans étape : aucune étape à compter, et le serveur dit s'il est fait", () => {
     const card = toObjectiveCard(objectives[5] as Objective, objectives, tasks, NOW);
-    expect(card.stageProgress).toEqual({ done: 0, inProgress: false, upcoming: 0 });
+    expect(card.stageProgress).toEqual({ done: 0, toDo: 0 });
     expect(card.accomplished).toBe(true);
-    expect(card.nextTask).toBeNull();
     expect(card.horizon).toBe('');
   });
 
-  it("une carte par objectif racine, dans l'ordre de chargement", () => {
+  it('une carte par objectif racine', () => {
     expect(toObjectiveCards(objectives, tasks, NOW).map((card) => card.id)).toEqual(['semi', 'guitare']);
   });
 
-  it('la vue détaillée donne les étapes directes, leurs pas (profonds compris) et leur état', () => {
+  it('la vue détaillée donne les étapes directes, leurs pas (profonds compris) et ce que le serveur dit d’elles', () => {
     const detail = toObjectiveDetail('semi', objectives, tasks, NOW);
     expect(detail?.objective).toMatchObject({ id: 'semi', horizon: "Jusqu'en mai" });
-    expect(detail?.stages.map((stage) => [stage.id, stage.index, stage.state])).toEqual([
-      ['programme', 1, 'faite'],
-      ['endurance', 2, 'en-cours'],
-      ['mental', 3, 'a-venir'],
+    expect(detail?.stages.map((stage) => [stage.id, stage.done])).toEqual([
+      ['programme', true],
+      ['endurance', false],
+      ['mental', false],
     ]);
-    const current = detail?.stages[1];
-    expect(current?.horizon).toBe("Jusqu'en novembre");
-    expect(current?.tasks.map((item) => [item.title, item.state, item.objectiveId])).toEqual([
-      [endurance[0]?.title, 'fait', 'endurance'],
-      [endurance[1]?.title, 'fait', 'sorties'],
-      ['Sortie de 30 minutes', 'en-cours', 'endurance'],
-      ['Courir 8 km', 'a-venir', 'sorties'],
+    const stage = detail?.stages[1];
+    expect(stage?.horizon).toBe("Jusqu'en novembre");
+    expect(stage?.tasks.map((item) => [item.title, item.done, item.objectiveId])).toEqual([
+      [endurance[0]?.title, true, 'endurance'],
+      [endurance[1]?.title, true, 'sorties'],
+      ['Sortie de 30 minutes', false, 'endurance'],
+      ['Courir 8 km', false, 'sorties'],
     ]);
-    expect(current?.progress).toEqual({ done: 2, inProgress: true, upcoming: 1 });
-    expect(current?.detail).toBe('2 pas faits · 2 à venir');
-    expect(current?.tasks[0]?.quadrant).toBe('maintenant');
-    expect(detail?.stages[0]?.detail).toBe('2 pas faits · étape accomplie');
+    expect(stage?.progress).toEqual({ done: 2, toDo: 2 });
+    expect(stage?.detail).toBe('2 pas faits · 2 à faire');
+    expect(stage?.tasks[0]?.quadrant).toBe('maintenant');
+    expect(detail?.stages[0]?.detail).toBe('2 pas faits');
     expect(detail?.stages[2]?.detail).toBe(EMPTY_STAGE_DETAIL);
   });
 
-  it('isole les pas sans étape, et prépare l’arête avec l’étape ouverte par défaut', () => {
+  it('isole les pas sans étape, et prépare l’arête sans autre état que faite ou non', () => {
     const detail = toObjectiveDetail('semi', objectives, tasks, NOW);
-    expect(detail?.tasksWithoutStage.map((item) => [item.title, item.state])).toEqual([
-      ['Comparer des montres GPS', 'a-venir'],
+    expect(detail?.tasksWithoutStage.map((item) => [item.title, item.done])).toEqual([
+      ['Comparer des montres GPS', false],
     ]);
     expect(detail?.aretes).toEqual([
-      { id: 'programme', nom: 'Programme', etat: 'faite' },
-      { id: 'endurance', nom: 'Endurance', etat: 'en-cours', detail: '2 pas faits' },
-      { id: 'mental', nom: 'Mental', etat: 'a-venir' },
+      { id: 'programme', nom: 'Programme', faite: true },
+      { id: 'endurance', nom: 'Endurance', faite: false },
+      { id: 'mental', nom: 'Mental', faite: false },
     ]);
-    expect(detail?.defaultStageId).toBe('endurance');
     expect(detail?.taskCount).toEqual({ done: 4, total: 7 });
   });
 
@@ -244,56 +187,99 @@ describe('cartes et vue détaillée', () => {
     ]);
   });
 
-  it("garde ouverte l'étape choisie tant qu'elle existe, sinon l'étape par défaut", () => {
+  it("garde ouverte l'étape choisie tant qu'elle existe, et n'en ouvre aucune d'elle-même", () => {
     const detail = toObjectiveDetail('semi', objectives, tasks, NOW);
-    expect(openStageId(null, detail)).toBe('endurance');
+    expect(openStageId(null, detail)).toBeNull();
     expect(openStageId('programme', detail)).toBe('programme');
-    expect(openStageId('disparue', detail)).toBe('endurance');
+    expect(openStageId('disparue', detail)).toBeNull();
     expect(openStageId('programme', undefined)).toBeNull();
+  });
+
+  it("l'arête « Faites » ouvre chaque étape faite, à tour de rôle", () => {
+    const list = [
+      objective('o', 'O'),
+      objective('e1', 'Une', 'o', null, true),
+      objective('e2', 'Deux', 'o', null, true),
+      objective('e3', 'Trois', 'o'),
+    ];
+    const stages = toObjectiveDetail('o', list, [], NOW)?.stages ?? [];
+    expect(foldedDoneStageId(stages, null)).toBe('e2');
+    expect(foldedDoneStageId(stages, 'e2')).toBe('e1');
+    expect(foldedDoneStageId(stages, 'e1')).toBe('e2');
+    expect(foldedDoneStageId(stages.slice(2), null)).toBeNull();
   });
 });
 
 describe('cas limites du cahier (§ 4)', () => {
-  it('objectif sans étape : ses pas comptent, le prochain pas est le premier non fait', () => {
+  it('fait ou non fait, c’est le serveur qui le dit : les vues ne le déduisent jamais des pas', () => {
+    const objectives = [
+      objective('o', 'O'),
+      objective('e1', 'Une', 'o'),
+      objective('e2', 'Deux', 'o', null, true),
+    ];
+    const tasks = [pas('a', 'e1', true), pas('b', 'e2', false)];
+    const card = toObjectiveCard(objectives[0] as Objective, objectives, tasks, NOW);
+    expect(card.stageProgress).toEqual({ done: 1, toDo: 1 });
+    expect(card.accomplished).toBe(false);
+    const detail = toObjectiveDetail('o', objectives, tasks, NOW);
+    expect(detail?.stages.map((stage) => stage.done)).toEqual([false, true]);
+    expect(detail?.aretes.map((arete) => arete.faite)).toEqual([false, true]);
+  });
+
+  it('une étape faite n’attend pas les autres : aucun ordre entre elles', () => {
+    const objectives = [
+      objective('o', 'O'),
+      objective('e1', 'Une', 'o'),
+      objective('e2', 'Deux', 'o', null, true),
+      objective('e3', 'Trois', 'o'),
+    ];
+    expect(toObjectiveDetail('o', objectives, [], NOW)?.aretes.map((arete) => arete.faite)).toEqual([
+      false,
+      true,
+      false,
+    ]);
+    expect(toObjectiveCard(objectives[0] as Objective, objectives, [], NOW).stageProgress).toEqual({
+      done: 1,
+      toDo: 2,
+    });
+  });
+
+  it('objectif sans étape : ses pas comptent', () => {
     const objectives = [objective('o', 'Lire 12 livres')];
     const tasks = [pas('a', 'o', true), pas('b', 'o', false), pas('c', 'o', false)];
     const card = toObjectiveCard(objectives[0] as Objective, objectives, tasks, NOW);
     expect(card).toMatchObject({
-      stageProgress: { done: 0, inProgress: false, upcoming: 0 },
+      stageProgress: { done: 0, toDo: 0 },
       stageCount: 0,
       taskCount: { done: 1, total: 3 },
-      nextTask: { id: 'b' },
       accomplished: false,
     });
-    expect(cardProgress(card)).toEqual({
-      kind: 'cases',
-      unit: 'pas',
-      done: 1,
-      inProgress: true,
-      upcoming: 1,
-    });
+    expect(cardProgress(card)).toEqual({ kind: 'cases', unit: 'pas', done: 1, toDo: 2 });
     const detail = toObjectiveDetail('o', objectives, tasks, NOW);
-    expect(detail).toMatchObject({ stages: [], aretes: [], defaultStageId: null });
-    expect(detail?.tasksWithoutStage.map((item) => item.state)).toEqual(['fait', 'a-venir', 'a-venir']);
+    expect(detail).toMatchObject({ stages: [], aretes: [] });
+    expect(detail?.tasksWithoutStage.map((item) => item.done)).toEqual([true, false, false]);
   });
 
-  it("objectif sans étape ni pas : l'invitation à poser la première étape", () => {
+  it("objectif sans étape ni pas : l'invitation à poser des étapes", () => {
     const objectives = [objective('o', 'Vide')];
     const card = toObjectiveCard(objectives[0] as Objective, objectives, [], NOW);
-    expect(card).toMatchObject({ taskCount: { done: 0, total: 0 }, nextTask: null, accomplished: false });
+    expect(card).toMatchObject({ taskCount: { done: 0, total: 0 }, accomplished: false });
     expect(cardProgress(card)).toEqual({ kind: 'invite' });
   });
 
   it("toutes les étapes faites mais un pas sans étape à faire : la légende ne dit pas l'objectif accompli", () => {
-    const objectives = [objective('o', 'O'), objective('e1', 'Une', 'o'), objective('e2', 'Deux', 'o')];
+    const objectives = [
+      objective('o', 'O'),
+      objective('e1', 'Une', 'o', null, true),
+      objective('e2', 'Deux', 'o', null, true),
+    ];
     const tasks = [pas('a', 'e1', true), pas('b', 'e2', true), pas('c', 'o', false)];
     const card = toObjectiveCard(objectives[0] as Objective, objectives, tasks, NOW);
-    expect(card.stageProgress).toEqual({ done: 2, inProgress: false, upcoming: 0 });
-    expect(card.nextTask?.id).toBe('c');
+    expect(card.stageProgress).toEqual({ done: 2, toDo: 0 });
     expect(card.accomplished).toBe(false);
     expect(cardProgress(card)).toMatchObject({
       kind: 'cases',
-      legend: '2 étapes faites · 1 pas sans étape à venir',
+      legend: '2 étapes faites · 1 pas sans étape à faire',
     });
   });
 
@@ -303,7 +289,7 @@ describe('cas limites du cahier (§ 4)', () => {
       ...Array.from({ length: 13 }, (_, i) => objective(`e${i}`, `Étape ${i}`, 'o')),
     ];
     const card = toObjectiveCard(objectives[0] as Objective, objectives, [], NOW);
-    expect(cardProgress(card)).toEqual({ kind: 'legend', text: 'Étape 0 en cours · 12 étapes à venir' });
+    expect(cardProgress(card)).toEqual({ kind: 'legend', text: '13 étapes à faire' });
   });
 
   it("sous-objectifs sur trois niveaux sous une étape : leurs pas comptent dans l'étape de premier niveau", () => {
@@ -313,7 +299,7 @@ describe('cas limites du cahier (§ 4)', () => {
       objective('s1', 'Sous', 'e1'),
       objective('ss1', 'Sous-sous', 's1'),
       objective('sss1', 'Sous-sous-sous', 'ss1'),
-      objective('e2', 'Suivante', 'o'),
+      objective('e2', 'Autre', 'o'),
     ];
     const tasks = [
       pas('a', 'sss1', true),
@@ -324,14 +310,13 @@ describe('cas limites du cahier (§ 4)', () => {
     ];
     const detail = toObjectiveDetail('o', objectives, tasks, NOW);
     expect(detail?.stages.map((stage) => stage.id)).toEqual(['e1', 'e2']);
-    expect(detail?.stages[0]?.tasks.map((item) => [item.id, item.objectiveId, item.state])).toEqual([
-      ['a', 'sss1', 'fait'],
-      ['b', 'ss1', 'en-cours'],
-      ['c', 's1', 'fait'],
-      ['d', 'e1', 'a-venir'],
+    expect(detail?.stages[0]?.tasks.map((item) => [item.id, item.objectiveId, item.done])).toEqual([
+      ['a', 'sss1', true],
+      ['b', 'ss1', false],
+      ['c', 's1', true],
+      ['d', 'e1', false],
     ]);
     expect(detail?.taskCount).toEqual({ done: 2, total: 5 });
-    expect(toObjectiveCard(objectives[0] as Objective, objectives, tasks, NOW).nextTask?.id).toBe('b');
   });
 
   it('ids temporaires : un objectif, une étape et un pas optimistes sont montrés comme les autres', () => {
@@ -342,15 +327,13 @@ describe('cas limites du cahier (§ 4)', () => {
     const tasks = [pas('temp-id-p', 'temp-id-e', false, 4, 1)];
     expect(toObjectiveCards(objectives, tasks, NOW)[0]).toMatchObject({
       id: 'temp-id-o',
-      stageProgress: { done: 0, inProgress: true, upcoming: 0, inProgressName: 'Nouvelle étape' },
-      nextTask: { id: 'temp-id-p' },
+      stageProgress: { done: 0, toDo: 1 },
     });
     const detail = toObjectiveDetail('temp-id-o', objectives, tasks, NOW);
-    expect(detail?.defaultStageId).toBe('temp-id-e');
     expect(detail?.stages[0]?.tasks[0]).toMatchObject({
       id: 'temp-id-p',
       quadrant: 'planifier',
-      state: 'en-cours',
+      done: false,
     });
   });
 });

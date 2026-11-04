@@ -54,6 +54,10 @@ Layers in `src/`, enforced by `no-restricted-imports` in `eslint.config.js`:
   `(onglets)` holds the two tabs; sheets are `transparentModal` routes.
 - `composition/` — the composition root (`assembleServices`), used by production and tests alike.
 
+Stages and steps have no order: they are independent, and a stage or an objective is done or not. That comes
+from the API (`done`): the client shows it and counts, it decides nothing. After a step is checked, added or
+edited, `ObjectiveCommands` re-reads the objectives (`onObjectivesChanged`).
+
 Reads go through TanStack Query (one flat snapshot of objectives per user); **writes never use
 `useMutation`**: they go through `ObjectiveCommands` → `WriteQueue`, as in the web client's stores — one
 at a time, each reconciled inside its queued operation (temporary id linked to the real id, cache fixed)

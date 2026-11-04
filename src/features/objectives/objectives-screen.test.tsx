@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from 'expo-router/testing-library';
+import { fireEvent, screen } from 'expo-router/testing-library';
 import { createTestApp, renderApp } from '@/testing/test-app';
 
 /*
@@ -6,7 +6,7 @@ import { createTestApp, renderApp } from '@/testing/test-app';
  */
 
 describe('Objectifs', () => {
-  it('montre les objectifs en marche, leur prochain pas, et le coche sur place', async () => {
+  it('montre les objectifs en marche et leur progression, sans aucun pas mis en avant', async () => {
     const app = createTestApp();
     app.objectives.seedObjective({ id: 'o1', title: 'Courir un semi-marathon', why: 'Tenir six mois' });
     app.objectives.seedObjective({ id: 's1', title: 'Endurance', parentId: 'o1' });
@@ -18,12 +18,20 @@ describe('Objectifs', () => {
     expect(await screen.findByText('Courir un semi-marathon')).toBeOnTheScreen();
     expect(screen.getByText('« Tenir six mois »')).toBeOnTheScreen();
     expect(screen.getByText('1 en marche')).toBeOnTheScreen();
+    expect(screen.getByRole('img', { name: '1 étape à faire' })).toBeOnTheScreen();
+    expect(screen.queryByRole('checkbox')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Prochain pas')).not.toBeOnTheScreen();
+  });
 
-    await fireEvent.press(screen.getByRole('checkbox', { name: 'Sortie de 30 minutes' }));
-    await waitFor(() => expect(app.objectives.tasks.find((task) => task.id === 't1')?.done).toBe(true));
-    // Le pas suivant devient le prochain pas de la carte.
-    expect(await screen.findByRole('checkbox', { name: 'Sortie de 45 minutes' })).toBeOnTheScreen();
-    expect(app.announcer.said.map((item) => item.text)).toContain('Un pas de plus.');
+  it("range dans « Accomplis » l'objectif que le serveur dit fait", async () => {
+    const app = createTestApp();
+    app.objectives.seedObjective({ id: 'o1', title: 'Apprendre le piano' });
+    app.objectives.seedTask({ id: 't1', title: 'Gammes', objectiveId: 'o1', done: true });
+
+    await renderApp(app, '/');
+
+    expect(await screen.findByText('1 accompli')).toBeOnTheScreen();
+    expect(screen.queryByText('1 en marche')).not.toBeOnTheScreen();
   });
 
   it("invite à construire le premier objectif quand il n'y en a aucun", async () => {

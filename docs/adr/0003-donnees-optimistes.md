@@ -41,5 +41,6 @@ mutations de TanStack Query partent en parallèle et ne savent pas faire suivre 
 - L'écran change au toucher ; les écritures partent dans l'ordre des gestes, une à la fois.
 - Un geste sur un élément encore optimiste (cocher le pas tout juste créé) attend sa création dans la
   file et part avec l'id définitif.
-- Les règles d'affichage (cartes, arête, matrice) se calculent dans le domaine depuis l'instantané :
-  aucun écran ne fait sa propre requête.
+- Les vues (cartes, arête, matrice) se calculent dans le domaine depuis l'instantané : aucun écran ne fait
+  sa propre requête. Fait ou non fait, pour une étape ou un objectif, n'est pas optimiste : c'est le
+  serveur qui le dit, à la relecture qui suit le geste.

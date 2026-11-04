@@ -114,7 +114,7 @@ function StagePanel({
       <Panneau bordPerdu testID="etape-ouverte">
         <EnRetrait style={styles.enteteEtape}>
           <ETexte variante="repere" couleur="encre-douce">
-            {T.stageMarker(stage.index, stage.state)}
+            {T.stageMarker(stage.done)}
           </ETexte>
           <ETexte variante="objectif" role="heading">
             {stageName(stage.title)}
@@ -132,8 +132,8 @@ function StagePanel({
           {stage.tasks.length > 0 ? (
             <EPas
               faits={stage.progress.done}
-              enCours={stage.progress.inProgress}
-              aVenir={stage.progress.upcoming}
+              aFaire={stage.progress.toDo}
+              {...(stage.done ? { accompli: T.stageAccomplished } : {})}
             />
           ) : (
             <ETexte variante="detail" couleur="encre-douce">
@@ -192,15 +192,17 @@ export function ObjectiveScreen({ objectiveId }: { readonly objectiveId: string 
   const today = useToday();
   const { detail, notFound, failure, refreshing, refresh } = useObjectiveDetail(objectiveId, today);
   const { report } = useReport();
+  const scroller = useRef<ScrollViewInstance | null>(null);
 
   return (
     <Ecran
       note={<ReportNote />}
       rafraichir={{ enCours: refreshing, onRafraichir: refresh }}
+      defilement={scroller}
       testID="ecran-arete"
     >
       {detail ? (
-        <ObjectiveContent detail={detail} hasReport={!!report} />
+        <ObjectiveContent detail={detail} hasReport={!!report} scroller={scroller} />
       ) : (
         <>
           <FilAriane
@@ -224,22 +226,23 @@ export function ObjectiveScreen({ objectiveId }: { readonly objectiveId: string 
 function ObjectiveContent({
   detail,
   hasReport,
+  scroller,
 }: {
   readonly detail: ObjectiveDetail;
   readonly hasReport: boolean;
+  readonly scroller: RefObject<ScrollViewInstance | null>;
 }) {
   const styles = useStyles();
   const router = useRouter();
   const commands = useObjectiveCommands();
   const announcements = useAnnouncements();
-  const scroller = useRef<ScrollViewInstance | null>(null);
   const panel = useRef<ViewInstance | null>(null);
   const { objective, stages } = detail;
 
-  // L'étape ouverte reste ouverte tant qu'elle existe, même quand elle s'achève et qu'une autre passe en cours :
-  // cocher son dernier pas ne fait pas sauter le panneau vers l'étape suivante.
+  // La personne choisit l'étape à ouvrir : aucune ne passe avant les autres. Elle reste ouverte tant qu'elle
+  // existe, même une fois faite, et quand son id temporaire devient définitif.
   const [shownStageId, setShownStageId] = useState<string | null>(null);
-  const openId = openStageId(shownStageId, detail);
+  const openId = openStageId(shownStageId && commands.currentId(shownStageId), detail);
   if (openId !== shownStageId) setShownStageId(openId);
   const stage = stages.find((item) => item.id === openId);
 
@@ -250,7 +253,7 @@ function ObjectiveContent({
     const chosen = stages.find((item) => item.id === id);
     if (!chosen) return;
     setShownStageId(chosen.id);
-    announcements.announce(T.stageChosen(chosen.index, chosen.state, stageName(chosen.title)));
+    announcements.announce(T.stageChosen(chosen.done, stageName(chosen.title)));
     requestAnimationFrame(() => amenerALEcran(scroller, panel));
   };
 
@@ -307,7 +310,13 @@ function ObjectiveContent({
           </Panneau>
           {stage ? (
             <StagePanel objectiveId={objective.id} stage={stage} onToggle={toggle} panel={panel} />
-          ) : null}
+          ) : (
+            <Panneau>
+              <ETexte variante="detail" couleur="encre-douce">
+                {T.chooseStage}
+              </ETexte>
+            </Panneau>
+          )}
         </Trame>
       ) : !hasReport ? (
         <ENote

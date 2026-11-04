@@ -47,6 +47,9 @@ Deux conséquences guident le code :
   [`empreinte-amont.md`](./empreinte-amont.md)).
 - **Les règles (`src/domain`) sont du TypeScript pur**, testées sans rendu : vues des cartes et de
   l'arête, matrice d'Eisenhower, formulaires, conversation d'Akari, voix, dates, typographie.
+- **Étapes et pas n'ont aucun ordre.** Ils sont indépendants : ni numéro, ni étape « en cours », ni
+  « prochain pas », et l'écran n'ouvre aucune étape de lui-même. Une étape ou un objectif est fait ou non
+  fait, et c'est Apex Brain qui le dit (`done`) : le client l'affiche et compte, il ne décide de rien.
 
 Le reste du code (domaine, application, état, écrans) est écrit en anglais ; les commentaires, la doc,
 les textes et les commits sont en français.
@@ -95,7 +98,9 @@ Les écritures ne passent pas par TanStack Query mais par `ObjectiveCommands`
    relit puis réenregistre un objectif entier : deux écritures simultanées pourraient s'écraser) ;
 3. il se réconcilie dès la réponse, **dans la file** : l'écriture suivante part de l'état qu'il a
    laissé (id définitif retenu, ce que le serveur a accepté) ; puis il est annoncé aux lecteurs d'écran,
-   ou signalé dans la note d'Akari.
+   ou signalé dans la note d'Akari ;
+4. un pas coché, ajouté ou modifié peut changer ce qui est fait : les objectifs sont relus
+   (`onObjectivesChanged`), et l'étape et l'objectif affichent ce que le serveur en dit.
 
 Un geste fait sur un élément encore optimiste part avec l'id définitif : la création passe avant lui
 dans la file et retient la correspondance (`link`), que le geste retrouve (`resolve`). Le client web la
@@ -105,8 +110,7 @@ ne dépend de cet ordre.
 **Un retour en arrière rend ce que le serveur a accepté.** Tant que des gestes sont en route sur un pas
 ou un objectif, `PendingChanges` garde ce que le serveur en a : l'état d'avant le premier geste, plus les
 changements acceptés. Quand le dernier geste en route est réglé, l'élément montre cet état : cocher puis
-décocher hors connexion ramène le pas tel qu'il était, et un déplacement dans la matrice n'enregistre
-jamais au passage le titre d'une modification refusée. Une étape dont la création n'aboutit pas
+décocher hors connexion ramène le pas tel qu'il était. Une étape dont la création n'aboutit pas
 disparaît avec les pas créés dessus ; un pas déjà enregistré qu'on y avait rangé revient à sa place.
 
 **Une session fermée ferme sa file.** Ce qui attend encore n'est jamais envoyé avec le jeton d'une autre
@@ -165,7 +169,7 @@ thème et les polices ne sont pas prêts.
   `EBouton` (sceau, trait, nu), `ECarte`, `EPas`, `EListe`/`ETache`, `EChamp`/`ESaisie`, `ENote`,
   `EMarque`, `EIcone`, `EEmpreinte`, le gardien du sceau (`GardienSceau`, `useSceau`). Les couleurs viennent du thème (`useTheme`),
   Jour ou Nuit ; aucune couleur n'est écrite en dur.
-- **Ce qui manque à Empreinte React Native 0.3.1** est composé dans `src/ui`, dans sa langue :
+- **Ce qui manque à Empreinte React Native 0.4** est composé dans `src/ui`, dans sa langue :
   `Feuille`, `Deroulant`, `Menu`, `Selection`, `Filtres`, `BarreOnglets`, `Quadrants`, `Arete`, `Fil`,
   `Composeur`, `Prose`, `Repli`, `FilAriane`, `ChampDate`, `ListeChoix`, `Ecran`, `EnTete`, `Panneau`.
 - **La voix** : les textes des écrans passent par `voiceIssues` (`features/voice.test.ts`) — tutoiement,

@@ -50,17 +50,19 @@ export function assembleServices(adapters: Adapters, queryClient: QueryClient): 
     const user = session.user;
     return user ? queryKeys.objectives(user.id) : null;
   });
+  const rereadObjectives = () => void queryClient.invalidateQueries({ queryKey: OBJECTIVES_ROOT_KEY });
   const commands = new ObjectiveCommands({
     gateway: gateways.objectives,
     cache,
     writes,
     announcements,
     ids: createTemporaryIds(),
+    onObjectivesChanged: rereadObjectives,
   });
   const loader = new ObjectivesLoader({ gateway: gateways.objectives, writes, cache });
   const akariWrites = new AkariWritesWatcher({
     assistant: gateways.assistant,
-    onObjectivesChanged: () => void queryClient.invalidateQueries({ queryKey: OBJECTIVES_ROOT_KEY }),
+    onObjectivesChanged: rereadObjectives,
     ...(adapters.timers ? { timers: adapters.timers } : {}),
   });
 

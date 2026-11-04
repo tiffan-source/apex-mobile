@@ -87,7 +87,7 @@ describe('la typographie française', () => {
   });
 
   it('ne touche ni aux autres espaces, ni à un texte déjà composé', () => {
-    expect(typeset('4 pas faits · 3 à venir')).toBe('4 pas faits · 3 à venir');
+    expect(typeset('4 pas faits · 3 à faire')).toBe('4 pas faits · 3 à faire');
     expect(typeset('https://apex.example/objectifs')).toBe('https://apex.example/objectifs');
     expect(typeset(typeset('On commence ?'))).toBe(typeset('On commence ?'));
   });

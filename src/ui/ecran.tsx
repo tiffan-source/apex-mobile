@@ -146,6 +146,7 @@ export function Ecran({
             <View style={styles.cadre}>
               <ScrollView
                 ref={vue}
+                testID={testID ? `${testID}-defilement` : undefined}
                 contentContainerStyle={[{ paddingBottom: basContenu }, centre && styles.centre]}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="interactive"

@@ -24,8 +24,9 @@ import { SHEETS_TEXTS } from './sheets/sheets.texts';
 const samples = [
   OBJECTIVES_TEXTS.openLabel('Courir un semi-marathon'),
   OBJECTIVE_TEXTS.arete(3),
-  OBJECTIVE_TEXTS.stageMarker(2, 'en-cours'),
-  OBJECTIVE_TEXTS.stageChosen(3, 'a-venir', 'Fractionné'),
+  OBJECTIVE_TEXTS.stageMarker(true),
+  OBJECTIVE_TEXTS.stageMarker(false),
+  OBJECTIVE_TEXTS.stageChosen(false, 'Fractionné'),
   OBJECTIVE_TEXTS.editTaskLabel('Sortie de 30 minutes'),
   OBJECTIVE_TEXTS.looseHint(true),
   OBJECTIVE_TEXTS.looseHint(false),
