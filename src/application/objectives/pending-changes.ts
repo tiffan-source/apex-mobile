@@ -17,11 +17,6 @@ export class PendingChanges<T> {
     else this.items.set(key, { confirmed: shown, pending: 1 });
   }
 
-  /** Ce que le serveur a de l'élément, d'après les gestes réglés ; undefined si aucun n'est en route. */
-  confirmed(key: string): T | undefined {
-    return this.items.get(key)?.confirmed;
-  }
-
   /**
    * Le geste est réglé : accepté (`change` s'applique à ce qu'a le serveur) ou refusé (`null`). Rend ce que
    * l'élément doit montrer si c'était le dernier geste en route sur lui, sinon undefined.

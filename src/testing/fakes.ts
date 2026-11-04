@@ -1,5 +1,11 @@
 import type { PreferenceTheme } from '@empreinte-studio/noyau';
-import type { ConversationMessage, ToolCall, WorkflowState } from '@/domain/akari/assistant';
+import type {
+  ConversationMessage,
+  ToolCall,
+  WorkflowActivity,
+  WorkflowActivityStep,
+  WorkflowState,
+} from '@/domain/akari/assistant';
 import type { ObjectivesSnapshot } from '@/domain/objectives/objective';
 import { EMPTY_SNAPSHOT } from '@/domain/objectives/objective';
 import { fail, ok, type Result } from '@/domain/shared/result';
@@ -191,6 +197,8 @@ export class ScriptedAssistantGateway implements AssistantGateway {
   nextSendFailure: string | null = null;
   /** Les lectures de l'état retenues : chacune rend l'état du moment où le serveur l'a traitée. */
   private heldStates: (() => void)[] | null = null;
+  /** Les envois retenus (un message, une réponse à une demande d'accord), comme un serveur qui tarde à répondre. */
+  private heldPosts: { promise: Promise<void>; release: () => void } | null = null;
 
   constructor(objectiveId = 'o1') {
     this.state = readyState(objectiveId);
@@ -229,17 +237,27 @@ export class ScriptedAssistantGateway implements AssistantGateway {
 
   async sendMessage(objectiveId: string, message: string): Promise<Result<WorkflowState>> {
     this.calls.push(`send:${message}`);
+    await this.heldPosts?.promise;
     if (this.nextSendFailure) {
       const code = this.nextSendFailure;
       this.nextSendFailure = null;
       return fail({ code, message: 'refusé', status: 409 });
     }
-    this.state = {
-      ...readyState(objectiveId),
-      value: 'RegisteringUserMessageInConversation',
-      status: 'processing',
-    };
+    this.state = processingState(objectiveId, 'saving-message');
     return ok(this.state);
+  }
+
+  /** Les prochains envois attendent `releasePosts()`. */
+  holdPosts(): void {
+    let release = () => {};
+    const promise = new Promise<void>((resume) => (release = resume));
+    this.heldPosts = { promise, release };
+  }
+
+  async releasePosts(): Promise<void> {
+    this.heldPosts?.release();
+    this.heldPosts = null;
+    await flush();
   }
 
   async respondToPermission(
@@ -248,11 +266,8 @@ export class ScriptedAssistantGateway implements AssistantGateway {
     toolCallId?: string,
   ): Promise<Result<WorkflowState>> {
     this.calls.push(`permission:${granted}:${toolCallId ?? ''}`);
-    this.state = {
-      ...readyState(objectiveId),
-      value: { ExecutingAllTool: 'ExecutingTool' },
-      status: 'processing',
-    };
+    await this.heldPosts?.promise;
+    this.state = processingState(objectiveId, granted ? 'writing' : 'reviewing');
     return ok(this.state);
   }
 }
@@ -260,8 +275,8 @@ export class ScriptedAssistantGateway implements AssistantGateway {
 export function readyState(objectiveId: string, overrides: Partial<WorkflowState> = {}): WorkflowState {
   return {
     objectiveId,
-    value: 'Ready For New Message',
     status: 'ready',
+    activity: null,
     pendingToolCall: null,
     lastRegisteredMessage: null,
     lastError: null,
@@ -269,10 +284,26 @@ export function readyState(objectiveId: string, overrides: Partial<WorkflowState
   };
 }
 
+/** Ce que fait Akari, comme Apex Brain le décrit : par défaut, au premier passage par l'IA, sans rien de fait avant. */
+export function activityOf(
+  step: WorkflowActivityStep,
+  overrides: Partial<WorkflowActivity> = {},
+): WorkflowActivity {
+  return { step, elapsedMs: 0, round: 1, done: [], ...overrides };
+}
+
+export function processingState(
+  objectiveId: string,
+  step: WorkflowActivityStep,
+  overrides: Partial<WorkflowActivity> = {},
+): WorkflowState {
+  return readyState(objectiveId, { status: 'processing', activity: activityOf(step, overrides) });
+}
+
 export function awaitingPermission(objectiveId: string, call: ToolCall): WorkflowState {
   return readyState(objectiveId, {
-    value: { ExecutingAllTool: 'WaitingForUserPermission' },
     status: 'awaiting-permission',
+    activity: activityOf('awaiting-permission'),
     pendingToolCall: call,
   });
 }

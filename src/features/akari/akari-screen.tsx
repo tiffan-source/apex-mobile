@@ -2,7 +2,12 @@ import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { EBouton, ETexte, creerStyles } from '@empreinte-studio/react-native';
-import { objectiveInvitation, permissionPrompt, stageInvitation } from '@/domain/akari/assistant';
+import {
+  journalLines,
+  objectiveInvitation,
+  permissionPrompt,
+  stageInvitation,
+} from '@/domain/akari/assistant';
 import {
   ACCEPT_ACTION,
   PERMISSION_REPLY_ID,
@@ -24,6 +29,7 @@ import { EnTete } from '@/ui/en-tete';
 import { Fil, type RepliqueFil } from '@/ui/fil';
 import { FilAriane } from '@/ui/fil-ariane';
 import { pas, traits } from '@/ui/fondations';
+import { Journal } from '@/ui/journal';
 import { Prose } from '@/ui/prose';
 import { Repli } from '@/ui/repli';
 import { ReportNote } from '../shell/report-note';
@@ -121,6 +127,7 @@ function AkariConversationScreen({
   const replies = buildReplies({
     messages: akari.messages,
     invitation,
+    journal: journalLines(akari.activity),
     permission: akari.permission,
     stageTitleOf,
   });
@@ -138,7 +145,7 @@ function AkariConversationScreen({
     loadingHistory: !akari.historyLoaded,
     awaitingPermission: akari.permission !== null,
     processing: akari.processing,
-    value: akari.value,
+    activity: akari.activity,
     interrupted: akari.interrupted,
   });
 
@@ -160,7 +167,9 @@ function AkariConversationScreen({
     return {
       id: reply.id,
       auteur: assistant ? 'assistant' : 'personne',
-      contenu: reply.markdown ? (
+      contenu: reply.journal ? (
+        <Journal lignes={reply.journal} />
+      ) : reply.markdown ? (
         <Prose texte={reply.text} voix={assistant ? 'voix' : 'corps'} douce={reply.pending} />
       ) : (
         reply.text

@@ -4,8 +4,8 @@ import {
   isWriteTool,
   permissionRequestOf,
   type PermissionRequest,
+  type WorkflowActivity,
   type WorkflowState,
-  type WorkflowValue,
 } from '@/domain/akari/assistant';
 import {
   AKARI_TEXTS,
@@ -40,7 +40,8 @@ export type AkariConversation = {
   readonly ready: boolean;
   /** Un tour est en cours. */
   readonly processing: boolean;
-  readonly value: WorkflowValue | undefined;
+  /** Ce que fait Akari pendant le tour en cours. */
+  readonly activity: WorkflowActivity | null | undefined;
   /** Ce qu'Akari demande la permission d'ajouter, ou null. */
   readonly permission: PermissionRequest | null;
   /** Le dernier tour a été interrompu (IA indisponible…) : la personne peut renvoyer son message. */
@@ -145,12 +146,25 @@ export function useAkari(objectiveId: string, enabled: boolean): AkariConversati
       const pending = pendingMessage(message, sequence.current);
       queryClient.setQueryData<ThreadMessage[]>(messagesKey, (current) => [...(current ?? []), pending]);
       const previous = queryClient.getQueryData<WorkflowState>(stateKey);
-      const result = await post(() => assistant.sendMessage(objectiveId, message));
+      const result = await post(async () => {
+        // Le tour commence tout de suite, pour la ligne d'état : un serveur qui se réveille peut tarder à répondre.
+        // Une lecture en route est abandonnée d'abord : elle ramènerait le repos.
+        await queryClient.cancelQueries({ queryKey: stateKey });
+        if (previous) {
+          queryClient.setQueryData<WorkflowState>(stateKey, {
+            ...previous,
+            status: 'processing',
+            activity: { step: 'saving-message', elapsedMs: 0, round: 0, done: [] },
+          });
+        }
+        return assistant.sendMessage(objectiveId, message);
+      });
       if (sessionChanged()) return false;
       if (!result.success) {
         queryClient.setQueryData<ThreadMessage[]>(messagesKey, (current) =>
           (current ?? []).filter((item) => item.id !== pending.id),
         );
+        if (previous) queryClient.setQueryData<WorkflowState>(stateKey, previous);
         announcements.report(
           result.error.code === 'WORKFLOW_BUSY' ? AKARI_TEXTS.busy : AKARI_TEXTS.startConversation,
         );
@@ -226,7 +240,7 @@ export function useAkari(objectiveId: string, enabled: boolean): AkariConversati
     historyFailed: history.isError,
     ready: historyLoaded && status === 'ready',
     processing: status === 'processing',
-    value: state?.value,
+    activity: state?.activity,
     permission: status === 'awaiting-permission' ? permissionRequestOf(state?.pendingToolCall ?? null) : null,
     interrupted: status === 'ready' && state?.lastError != null,
     send,

@@ -1027,6 +1027,13 @@ export interface operations {
                         };
                         /** @enum {string} */
                         status: "ready" | "processing" | "awaiting-permission";
+                        activity: {
+                            /** @enum {string} */
+                            step: "saving-message" | "thinking" | "checking-permission" | "awaiting-permission" | "reading" | "writing" | "reviewing" | "saving-reply";
+                            elapsedMs: number;
+                            round: number;
+                            done: ("saving-message" | "thinking" | "checking-permission" | "awaiting-permission" | "reading" | "writing" | "reviewing" | "saving-reply")[];
+                        } | null;
                         pendingToolCall: {
                             id: string;
                             name: string;
@@ -1096,6 +1103,13 @@ export interface operations {
                         };
                         /** @enum {string} */
                         status: "ready" | "processing" | "awaiting-permission";
+                        activity: {
+                            /** @enum {string} */
+                            step: "saving-message" | "thinking" | "checking-permission" | "awaiting-permission" | "reading" | "writing" | "reviewing" | "saving-reply";
+                            elapsedMs: number;
+                            round: number;
+                            done: ("saving-message" | "thinking" | "checking-permission" | "awaiting-permission" | "reading" | "writing" | "reviewing" | "saving-reply")[];
+                        } | null;
                         pendingToolCall: {
                             id: string;
                             name: string;
@@ -1184,6 +1198,13 @@ export interface operations {
                         };
                         /** @enum {string} */
                         status: "ready" | "processing" | "awaiting-permission";
+                        activity: {
+                            /** @enum {string} */
+                            step: "saving-message" | "thinking" | "checking-permission" | "awaiting-permission" | "reading" | "writing" | "reviewing" | "saving-reply";
+                            elapsedMs: number;
+                            round: number;
+                            done: ("saving-message" | "thinking" | "checking-permission" | "awaiting-permission" | "reading" | "writing" | "reviewing" | "saving-reply")[];
+                        } | null;
                         pendingToolCall: {
                             id: string;
                             name: string;

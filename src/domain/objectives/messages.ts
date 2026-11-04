@@ -1,5 +1,4 @@
-import { TITRES_QUADRANTS, type Quadrant } from './eisenhower';
-import { quoted, typesetTexts } from '../shared/typography';
+import { typesetTexts } from '../shared/typography';
 
 /*
  * Les phrases que les gestes sur les objectifs disent à la personne, dans la voix d'Empreinte : tutoiement,
@@ -19,11 +18,6 @@ export const SUCCESS_ANNOUNCEMENTS = typesetTexts({
   taskUndone: 'Ce pas est de nouveau à faire.',
 } as const);
 
-/** L'annonce d'un pas déplacé dans la matrice : « Ce pas passe dans « À planifier ». » */
-export function taskMovedAnnouncement(quadrant: Quadrant): string {
-  return `Ce pas passe dans ${quoted(TITRES_QUADRANTS[quadrant])}.`;
-}
-
 /** Les signalements : ce qui n'a pas marché, et quoi faire. */
 export const FAILURE_REPORTS = typesetTexts({
   createObjective: "Je n'ai pas pu enregistrer cet objectif. Vérifie ta connexion, puis réessaie.",
@@ -32,7 +26,6 @@ export const FAILURE_REPORTS = typesetTexts({
   addTask: "Je n'ai pas pu enregistrer ce pas. Vérifie ta connexion, puis réessaie.",
   editTask: "Je n'ai pas pu enregistrer ce pas. Vérifie ta connexion, puis réessaie.",
   toggleTask: "Je n'ai pas pu enregistrer ce pas. Vérifie ta connexion, puis réessaie.",
-  moveTask: "Je n'ai pas pu déplacer ce pas. Vérifie ta connexion, puis réessaie.",
   loadObjectives: "Je n'ai pas pu charger tes objectifs. Vérifie ta connexion, puis réessaie.",
   objectiveNotFound: 'Je ne retrouve plus cet objectif. Recharge tes objectifs, puis réessaie.',
   taskNotFound: 'Je ne retrouve plus ce pas. Recharge tes objectifs, puis réessaie.',

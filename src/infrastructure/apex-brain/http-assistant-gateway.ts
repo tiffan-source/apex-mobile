@@ -11,8 +11,15 @@ type WorkflowStateDto =
 function toWorkflowState(dto: WorkflowStateDto): WorkflowState {
   return {
     objectiveId: dto.objectiveId,
-    value: dto.value,
     status: dto.status,
+    activity: dto.activity
+      ? {
+          step: dto.activity.step,
+          elapsedMs: dto.activity.elapsedMs,
+          round: dto.activity.round,
+          done: dto.activity.done,
+        }
+      : null,
     pendingToolCall: dto.pendingToolCall
       ? {
           id: dto.pendingToolCall.id,

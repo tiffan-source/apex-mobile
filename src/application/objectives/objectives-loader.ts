@@ -9,7 +9,7 @@ import { SessionClosedError, type WriteQueue } from './write-queue';
  * Le chargement des objectifs, comme `withObjectiveQuery` du client web : une lecture de la base, dans la file
  * des écritures, qui ne rend que ce que l'écran peut montrer.
  *
- * Un geste fait après la mise en file d'un rechargement (cocher, modifier, déplacer un pas chargé) a déjà
+ * Un geste fait après la mise en file d'un rechargement (cocher ou modifier un pas chargé) a déjà
  * changé l'écran, mais il n'est écrit qu'après la lecture : plus ancienne que lui, elle l'effacerait de l'écran
  * alors qu'il est enregistré. Elle est alors laissée de côté, et la base relue après ces écritures. Au premier
  * chargement, rien n'est encore à l'écran : la lecture vaut tout de suite. Les éléments encore optimistes (id

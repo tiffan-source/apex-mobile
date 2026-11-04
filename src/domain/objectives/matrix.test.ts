@@ -1,9 +1,9 @@
-import { QUADRANTS, type Quadrant } from '@empreinte-studio/noyau';
-import { NEW_TASK_LEVELS, levelsForQuadrant, otherQuadrants, quadrantOf } from './eisenhower';
+import type { Quadrant } from '@empreinte-studio/noyau';
+import { NEW_TASK_LEVELS, quadrantOf } from './eisenhower';
 import { filterMatrixByObjective, matrixSize, matrixTaskDetail, toMatrix } from './matrix';
 import type { Objective, Task } from './objective';
 
-/* Les cas du client web (`matrix.mapper.spec.ts`) : la règle d'apex-library et le déplacement d'un pas. */
+/* Les cas du client web (`matrix.mapper.spec.ts`) : la règle d'apex-library. */
 
 const objective = (id: string, title: string, parentId: string | null = null): Objective => ({
   id,
@@ -40,60 +40,6 @@ describe('quadrantOf (règle ApexLibsMetier, seuil 3)', () => {
 
   it('un nouveau pas naît « À planifier »', () => {
     expect(quadrantOf(NEW_TASK_LEVELS)).toBe('planifier');
-  });
-});
-
-describe('levelsForQuadrant', () => {
-  it('vers « maintenant » : une valeur sous 3 passe à 3, le reste ne bouge pas', () => {
-    expect(levelsForQuadrant({ importance: 1, urgency: 2 }, 'maintenant')).toEqual({
-      importance: 3,
-      urgency: 3,
-    });
-    expect(levelsForQuadrant({ importance: 5, urgency: 1 }, 'maintenant')).toEqual({
-      importance: 5,
-      urgency: 3,
-    });
-    expect(levelsForQuadrant({ importance: 4, urgency: 5 }, 'maintenant')).toEqual({
-      importance: 4,
-      urgency: 5,
-    });
-  });
-
-  it('vers « planifier » et « confier »', () => {
-    expect(levelsForQuadrant({ importance: 5, urgency: 5 }, 'planifier')).toEqual({
-      importance: 5,
-      urgency: 2,
-    });
-    expect(levelsForQuadrant({ importance: 2, urgency: 1 }, 'planifier')).toEqual({
-      importance: 3,
-      urgency: 1,
-    });
-    expect(levelsForQuadrant({ importance: 4, urgency: 2 }, 'confier')).toEqual({
-      importance: 2,
-      urgency: 3,
-    });
-  });
-
-  it('vers « laisser filer » : une valeur de 3 ou plus passe à 2, une valeur plus basse reste', () => {
-    expect(levelsForQuadrant({ importance: 3, urgency: 5 }, 'laisser-filer')).toEqual({
-      importance: 2,
-      urgency: 2,
-    });
-    expect(levelsForQuadrant({ importance: 1, urgency: 2 }, 'laisser-filer')).toEqual({
-      importance: 1,
-      urgency: 2,
-    });
-  });
-
-  it('le pas déplacé arrive toujours dans le quadrant demandé (tous niveaux de 1 à 5)', () => {
-    for (const quadrant of QUADRANTS)
-      for (let importance = 1; importance <= 5; importance++)
-        for (let urgency = 1; urgency <= 5; urgency++)
-          expect(quadrantOf(levelsForQuadrant({ importance, urgency }, quadrant))).toBe(quadrant);
-  });
-
-  it('propose les trois autres quadrants', () => {
-    expect(otherQuadrants('planifier')).toEqual(['maintenant', 'confier', 'laisser-filer']);
   });
 });
 

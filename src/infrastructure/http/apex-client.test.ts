@@ -190,6 +190,12 @@ describe('les passerelles', () => {
       objectiveId: 'o',
       value: { ExecutingAllTool: 'WaitingForUserPermission' },
       status: 'awaiting-permission',
+      activity: {
+        step: 'awaiting-permission',
+        elapsedMs: 1200,
+        round: 1,
+        done: ['saving-message', 'thinking', 'checking-permission'],
+      },
       pendingToolCall: { id: 'c1', name: 'createSubObjective', arguments: { title: 'Portfolio' } },
       lastRegisteredMessage: null,
       lastError: null,
@@ -200,6 +206,8 @@ describe('les passerelles', () => {
     );
     const result = await gateway.respondToPermission('o', true, 'c1');
     expect(result.success && result.data.pendingToolCall?.name).toBe('createSubObjective');
+    expect(result.success && result.data.activity).toEqual(state.activity);
+    expect(result.success && 'value' in result.data).toBe(false);
     expect(received[0]).toMatchObject({
       url: '/v1/objectives/o/assistant/permission',
       body: { granted: true, toolCallId: 'c1' },

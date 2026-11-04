@@ -1,4 +1,4 @@
-import { isExecutingTool } from '@/domain/akari/assistant';
+import { isWriting } from '@/domain/akari/assistant';
 import { CLIENT_ERRORS, isTransientFailure } from '@/domain/shared/result';
 import type { AssistantGateway } from '../ports/assistant-gateway';
 import { SYSTEM_TIMERS, type Timers } from '../ports/platform';
@@ -60,7 +60,7 @@ export class AkariWritesWatcher {
       this.watched.delete(objectiveId);
       return;
     }
-    const waiting = state.success ? isExecutingTool(state.data.value) : isTransientFailure(state.error);
+    const waiting = state.success ? isWriting(state.data) : isTransientFailure(state.error);
     if (waiting && attempt < MAX_POLLS) {
       this.poll(objectiveId, attempt + 1);
       return;

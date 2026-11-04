@@ -16,7 +16,7 @@ d'**Empreinte**, le design system de la suite.
 | --------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | Connexion                   | `/auth`                                                                | Se connecter, créer son compte.                                                                          |
 | Objectifs (accueil, onglet) | `/`                                                                    | Les objectifs en marche en cartes (progression, Ouvrir), les accomplis dans un repli.                    |
-| La matrice (onglet)         | `/matrice`                                                             | Les pas dans les quatre quadrants d'Eisenhower, filtrés par objectif ; cocher, « Déplacer vers… ».       |
+| La matrice (onglet)         | `/matrice`                                                             | Les pas rangés dans les quatre quadrants d'Eisenhower par leurs niveaux, filtrés par objectif ; cocher.  |
 | Nouvel objectif             | `/objectifs/nouveau`                                                   | Akari pose ses questions, le brouillon se met à jour ; « Je m'y engage » crée l'objectif et ouvre Akari. |
 | L'arête d'un objectif       | `/objectifs/:id`                                                       | L'arête des étapes, l'étape choisie et ses pas ; ajouter, modifier, cocher.                              |
 | Akari                       | `/objectifs/:id/akari`                                                 | La conversation avec Akari (Markdown), ses propositions d'étapes et de pas, acceptées une à une.         |
