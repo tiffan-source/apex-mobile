@@ -1,4 +1,4 @@
-import { ScriptedAssistantGateway, readyState } from '@/testing/fakes';
+import { ScriptedAssistantGateway, processingState, readyState } from '@/testing/fakes';
 import { flush } from '@/testing/in-memory-objectives-gateway';
 import type { Timers } from '../ports/platform';
 import { AnnouncementCenter } from '../announcements/announcement-center';
@@ -27,10 +27,24 @@ class ManualTimers implements Timers {
   }
 }
 
-const executing = (objectiveId: string) =>
-  readyState(objectiveId, { value: { ExecutingAllTool: 'ExecutingTool' }, status: 'processing' });
+const executing = (objectiveId: string) => processingState(objectiveId, 'writing');
 
 describe('AkariWritesWatcher', () => {
+  it('attend aussi un tour qui ne dit pas ce qu’il fait', async () => {
+    const assistant = new ScriptedAssistantGateway('o1');
+    assistant.upcoming.push(readyState('o1', { status: 'processing' }), readyState('o1'));
+    const timers = new ManualTimers();
+    const reload = jest.fn();
+    const watcher = new AkariWritesWatcher({ assistant, onObjectivesChanged: reload, timers });
+
+    watcher.watch('o1');
+    await timers.tick();
+    expect(reload).not.toHaveBeenCalled();
+
+    await timers.tick();
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
   it("recharge les objectifs une fois l'outil exécuté, pas avant, et une seule fois", async () => {
     const assistant = new ScriptedAssistantGateway('o1');
     assistant.upcoming.push(executing('o1'), executing('o1'), readyState('o1'));
