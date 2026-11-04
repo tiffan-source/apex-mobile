@@ -2,7 +2,7 @@
   "expo": {
     "name": "Apex",
     "slug": "apex",
-    "description": "Mener un objectif jusqu'au sommet, pas après pas.",
+    "description": "Mener un objectif jusqu'au sommet.",
     "version": "0.1.0",
     "scheme": "apex",
     "orientation": "portrait",
