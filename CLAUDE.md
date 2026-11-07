@@ -17,16 +17,17 @@ left) and `docs/empreinte-amont.md` before larger changes. Decisions live in `do
 
 ## Commands
 
-| Task                                                                  | Command                                                      |
-| --------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Install (needs a GitHub token with `read:packages`)                   | `NODE_AUTH_TOKEN=… npm install`                              |
-| Dev server (Expo Go, simulator, emulator)                             | `npm start`                                                  |
-| Web preview (dev only, Apex Brain must allow `http://localhost:8081`) | `npm run web`                                                |
-| Everything CI checks                                                  | `npm run verifier`                                           |
-| Lint / types / format                                                 | `npm run lint`, `npm run typecheck`, `npm run format:check`  |
-| Tests (all, or one file)                                              | `npm test`, `npx jest src/features/matrix`                   |
-| iOS + Android bundles                                                 | `npm run export`                                             |
-| Regenerate the API types                                              | `npm run api:types` (from `openapi/apex-brain.openapi.json`) |
+| Task                                                                  | Command                                                       |
+| --------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Install (needs a GitHub token with `read:packages`)                   | `NODE_AUTH_TOKEN=… npm install`                               |
+| Dev server (Expo Go, simulator, emulator)                             | `npm start`                                                   |
+| Web preview (dev only, Apex Brain must allow `http://localhost:8081`) | `npm run web`                                                 |
+| Everything CI checks                                                  | `npm run verifier`                                            |
+| Lint / types / format                                                 | `npm run lint`, `npm run typecheck`, `npm run format:check`   |
+| Tests (all, or one file)                                              | `npm test`, `npx jest src/features/matrix`                    |
+| iOS + Android bundles                                                 | `npm run export`                                              |
+| Pull the API contract (`APEX_BRAIN_URL`, default `localhost:3000`)    | `npm run api:pull` (writes `openapi/apex-brain.openapi.json`) |
+| Regenerate the API types                                              | `npm run api:types` (from `openapi/apex-brain.openapi.json`)  |
 
 - `npm run typecheck` first generates typed routes (`expo customize tsconfig.json` writes
   `.expo/types/router.d.ts` and `expo-env.d.ts`, both ignored), so hrefs are checked.
@@ -56,8 +57,11 @@ Layers in `src/`, enforced by `no-restricted-imports` in `eslint.config.js`:
 - `composition/` — the composition root (`assembleServices`), used by production and tests alike.
 
 Stages and steps have no order: they are independent, and a stage or an objective is done or not. That comes
-from the API (`done`): the client shows it and counts, it decides nothing. After a step is checked, added,
-edited or erased, or a stage erased, `ObjectiveCommands` re-reads the objectives (`onObjectivesChanged`).
+from the API (`done`): the client shows it and counts, it decides nothing — not even when every step is done.
+Apex Brain v2 only (ADR 0007): one read, `GET /v2/bff/objective-tree`, flattened by the gateway; writes are named
+commands (`rename`, `clarify`, `set-deadline`, `reprioritize`, `move`, `complete`…), one per changed field, and
+the entity each returns becomes the server-accepted state. No re-read after an accepted gesture; the tree is read
+on first load, pull-to-refresh, return to foreground, after an Akari write and after a refused erase.
 
 Erasing has three weights (mockup « Effacer », Empreinte 0.6): a step is swiped away (`EGlissable`, or « Effacer
 ce pas » at the foot of its sheet) and its trace (`ETrace`, « Remettre ») takes its place — `TaskTrace` keeps it,
@@ -65,8 +69,8 @@ one at a time, and erases it for good when the trace ends; a stage goes after an
 (`/etapes/:id/effacer`); an objective from the foot of « Modifier l'objectif », its name rewritten
 (`/objectifs/:id/effacer`). Any new erase first erases the waiting step for good. `deleteTask`/`deleteObjective`
 remove at once what depends on the element, put it back as the server has it if refused (handing it to its parent's
-pending erase when there is one) then re-read, and treat « not found » as already erased. No « Laisser filer » until
-Apex Brain has it.
+pending erase when there is one) then re-read (the only re-read a gesture asks for), and treat « not found » as
+already erased. No « Laisser filer » until Apex Brain has it.
 
 Reads go through TanStack Query (one flat snapshot of objectives per user); **writes never use
 `useMutation`**: they go through `ObjectiveCommands` → `WriteQueue`, as in the web client's stores — one

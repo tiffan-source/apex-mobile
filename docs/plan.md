@@ -38,7 +38,7 @@ joue ce rôle), les statistiques, les toasts.
   de retour d'Android les ferme, et un lien peut les ouvrir, comme un écran.
 - **Retirer un horizon ou une échéance** est possible : Apex Brain accepte `dueDate: null`. Le web le
   refusait faute de cas d'usage.
-- **La déconnexion** est dans les réglages : Apex Brain a `POST /v1/auth/logout`, et le coffre de
+- **La déconnexion** est dans les réglages : Apex Brain a `POST /v2/auth/logout`, et le coffre de
   l'appareil garde la session jusque-là.
 - **La feuille d'un pas dit son quadrant** (« Dans la matrice, ce pas se range dans « À planifier ». ») :
   sur un téléphone, la matrice n'est pas à côté.
@@ -80,8 +80,13 @@ joue ce rôle), les statistiques, les toasts.
 
 - Remonter dans le noyau la typographie française et les mots de la voix
   ([`empreinte-amont.md`](./empreinte-amont.md)).
-- Garder le contrat à jour : copier `/docs-json` d'Apex Brain dans `openapi/`, puis
+- Garder le contrat à jour : `npm run api:pull` (copie `/docs-json` d'Apex Brain dans `openapi/`), puis
   `npm run api:types`.
+- **Fait d'une étape ou d'un objectif, en attente d'Apex Brain** : la v2 rend le `done` tel qu'il est en base,
+  sans le tenir à jour ; tant qu'Apex Brain ne le tient pas, et que les commandes qui le changent (cocher,
+  décocher, ajouter, déplacer ou effacer un pas, effacer une étape) ne rendent pas les objectifs touchés, aucune
+  étape ni aucun objectif ne s'affiche fait (ADR 0007). Le jour où elles les rendent, ils passent par
+  `acceptObjective` dans `ObjectiveCommands`.
 - Des tests de bout en bout sur appareil (Maestro, par exemple), sur un Apex Brain de test.
 - Reporter dans le client web la règle du retour en arrière (`PendingChanges`) : ses stores remettent la
   valeur d'avant le geste, et cocher puis décocher hors connexion y laisse le pas coché alors que la base

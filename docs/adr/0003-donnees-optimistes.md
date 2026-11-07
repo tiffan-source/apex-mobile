@@ -1,6 +1,6 @@
 # ADR 0003 — Lire avec TanStack Query, écrire par une file optimiste
 
-- Statut : accepté
+- Statut : accepté, précisé par [0007](./0007-apex-brain-v2.md) (commandes de la v2, pas de relecture après un geste)
 - Date : 2026-10-25
 
 ## Contexte
