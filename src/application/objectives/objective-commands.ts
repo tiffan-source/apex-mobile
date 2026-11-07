@@ -6,6 +6,7 @@ import {
   addTask,
   eraseObjective,
   eraseTask,
+  erasedParents,
   findObjective,
   findTask,
   isTemporaryId,
@@ -64,6 +65,16 @@ type Sent<T> = Result<T> | typeof SKIPPED;
 const accepted = <T>(sent: Sent<T>): sent is { readonly success: true; readonly data: T } =>
   sent !== SKIPPED && sent.success;
 
+/**
+ * Un effacement en route : ce qu'il a retiré de l'écran (et ce que des effacements refusés lui ont confié), puis ce
+ * qu'il en est advenu — parti, revenu à sa place, confié à l'effacement de son parent, ou sans place où revenir.
+ */
+type Erasure = {
+  readonly objectives: Removed<Objective>[];
+  readonly tasks: Removed<Task>[];
+  outcome: 'gone' | 'restored' | 'handed' | 'dropped';
+};
+
 /** Un élément que le serveur ne trouve plus (`notFoundCode`) est déjà effacé : l'effacement a abouti. */
 const alreadyErased = (result: Result<void>, notFoundCode: string): Result<void> =>
   !result.success && result.error.code === notFoundCode ? ok(undefined) : result;
@@ -72,6 +83,8 @@ export class ObjectiveCommands {
   /** Ce que le serveur a accepté des pas et des objectifs que des gestes en route touchent. */
   private readonly tasks = new PendingChanges<Task>();
   private readonly objectives = new PendingChanges<Objective>();
+  /** Les effacements en route, avec ce qu'ils ont retiré de l'écran. */
+  private readonly erasures = new Set<Erasure>();
 
   constructor(private readonly deps: ObjectiveCommandsDeps) {}
 
@@ -246,8 +259,7 @@ export class ObjectiveCommands {
     const current = cache.read();
     const id = writes.resolve(taskId);
     if (!current || !findTask(current, id)) return;
-    const { removed } = eraseTask(current, id);
-    this.beginErasing(removed);
+    const erasure = this.beginErasing(eraseTask(current, id).removed);
     cache.update((snapshot) => eraseTask(snapshot, id).snapshot);
 
     const sent = await this.write(
@@ -257,9 +269,9 @@ export class ObjectiveCommands {
         if (isTemporaryId(target)) return SKIPPED;
         return this.request(async () => alreadyErased(await gateway.deleteTask(target), 'TASK_NOT_FOUND'));
       },
-      (result) => this.settleErased(removed, result !== SKIPPED && !result.success),
+      (result) => this.settleErased(erasure, result !== SKIPPED && !result.success),
     );
-    this.tell(sent, 'eraseTask');
+    this.tellErased(sent, erasure, 'eraseTask');
     // Sans ce pas, son étape peut être faite : le serveur le dira à la prochaine lecture.
     this.reread(sent);
   }
@@ -275,8 +287,7 @@ export class ObjectiveCommands {
     const target = findObjective(current, writes.resolve(objectiveId));
     if (!current || !target) return;
     const isStage = target.parentId !== null;
-    const { removed } = eraseObjective(current, target.id);
-    this.beginErasing(removed);
+    const erasure = this.beginErasing(eraseObjective(current, target.id).removed);
     cache.update((snapshot) => eraseObjective(snapshot, target.id).snapshot);
 
     const sent = await this.write(
@@ -288,10 +299,11 @@ export class ObjectiveCommands {
           alreadyErased(await gateway.deleteObjective(id), 'OBJECTIVE_NOT_FOUND'),
         );
       },
-      (result) => this.settleErased(removed, result !== SKIPPED && !result.success),
+      (result) => this.settleErased(erasure, result !== SKIPPED && !result.success),
     );
-    this.tell(
+    this.tellErased(
       sent,
+      erasure,
       isStage ? 'eraseStage' : 'eraseObjective',
       isStage ? SUCCESS_ANNOUNCEMENTS.stageErased : SUCCESS_ANNOUNCEMENTS.objectiveErased,
     );
@@ -308,6 +320,7 @@ export class ObjectiveCommands {
   forget(): void {
     this.tasks.clear();
     this.objectives.clear();
+    this.erasures.clear();
   }
 
   /** Un objectif ou une étape créé : son id définitif, ou il disparaît avec ce qui n'existe que sur lui. */
@@ -347,34 +360,91 @@ export class ObjectiveCommands {
   }
 
   /** Un effacement commence : ce qu'il retire est un geste en route sur chacun de ces éléments. */
-  private beginErasing(removed: RemovedItems): void {
+  private beginErasing(removed: RemovedItems): Erasure {
     for (const { item } of removed.objectives) this.objectives.begin(item.id, item);
     for (const { item } of removed.tasks) this.tasks.begin(item.id, item);
+    const erasure: Erasure = {
+      objectives: [...removed.objectives],
+      tasks: [...removed.tasks],
+      outcome: 'gone',
+    };
+    this.erasures.add(erasure);
+    return erasure;
   }
 
   /**
    * Un effacement est réglé. Accepté (ou sans objet), ce qu'il a retiré est oublié. Refusé, tout revient à sa place,
    * tel que le serveur l'a (`PendingChanges` : un pas coché juste avant, refusé lui aussi, revient décoché), sauf ce
-   * dont la création n'a pas abouti entre-temps.
+   * dont la création n'a pas abouti entre-temps. Si son parent attend lui-même d'être effacé (une étape effacée
+   * pendant qu'un de ses pas partait), ce qui revient lui est confié : il reviendra avec lui, ou partira avec lui.
    */
-  private settleErased(removed: RemovedItems, refused: boolean): void {
+  private settleErased(erasure: Erasure, refused: boolean): void {
     const { cache, writes } = this.deps;
-    const objectives: Removed<Objective>[] = [];
-    const tasks: Removed<Task>[] = [];
-    for (const { index, item } of removed.objectives) {
+    this.erasures.delete(erasure);
+    const back: { objectives: Removed<Objective>[]; tasks: Removed<Task>[] } = { objectives: [], tasks: [] };
+    for (const { index, item } of erasure.objectives) {
       const id = writes.resolve(item.id);
       const confirmed = this.objectives.settle(id, refused ? null : (objective) => objective) ?? item;
       if (!refused || isTemporaryId(id)) continue;
       const parentId = item.parentId === null ? null : writes.resolve(item.parentId);
-      objectives.push({ index, item: { ...confirmed, id, parentId } });
+      back.objectives.push({ index, item: { ...confirmed, id, parentId } });
     }
-    for (const { index, item } of removed.tasks) {
+    for (const { index, item } of erasure.tasks) {
       const id = writes.resolve(item.id);
       const confirmed = this.tasks.settle(id, refused ? null : (task) => task) ?? item;
       if (!refused || isTemporaryId(id)) continue;
-      tasks.push({ index, item: { ...confirmed, id, objectiveId: writes.resolve(confirmed.objectiveId) } });
+      back.tasks.push({
+        index,
+        item: { ...confirmed, id, objectiveId: writes.resolve(confirmed.objectiveId) },
+      });
     }
-    if (refused) cache.update((snapshot) => restoreErased(snapshot, { objectives, tasks }));
+    if (!refused) {
+      erasure.outcome = 'gone';
+      return;
+    }
+    const heir = this.pendingErasureOf(erasedParents(back));
+    if (heir) {
+      heir.objectives.push(...back.objectives);
+      heir.tasks.push(...back.tasks);
+      erasure.outcome = 'handed';
+      return;
+    }
+    const current = cache.read();
+    const restored = current ? restoreErased(current, back) : null;
+    if (restored) cache.update(() => restored);
+    erasure.outcome = restored ? 'restored' : 'dropped';
+  }
+
+  /** L'effacement en route qui emporte l'un de ces objectifs (ou étapes), s'il y en a un. */
+  private pendingErasureOf(objectiveIds: readonly string[]): Erasure | undefined {
+    const { writes } = this.deps;
+    const wanted = new Set(objectiveIds.map((id) => writes.resolve(id)));
+    if (wanted.size === 0) return undefined;
+    for (const erasure of this.erasures) {
+      if (erasure.objectives.some(({ item }) => wanted.has(writes.resolve(item.id)))) return erasure;
+    }
+    return undefined;
+  }
+
+  /**
+   * Ce qu'un effacement dit : sa réussite, s'il y a quelque chose à annoncer ; refusé, qu'il est revenu à sa place,
+   * seulement s'il y est revenu (confié à l'effacement de son parent, ou parti avec lui, c'est ce dernier qui
+   * parlera). Un effacement refusé fait relire les objectifs : le serveur dit ce qui est vrai (un effacement fait
+   * avant que sa réponse se perde, un geste refusé entre-temps).
+   */
+  private tellErased<T>(
+    sent: Sent<T> | typeof CLOSED,
+    erasure: Erasure,
+    action: FailedAction,
+    success?: string,
+  ): void {
+    if (sent === CLOSED || sent === SKIPPED) return;
+    if (sent.success) {
+      if (success) this.deps.announcements.announce(success);
+      return;
+    }
+    if (erasure.outcome === 'restored') this.report(action, sent.error);
+    this.deps.onObjectivesChanged();
   }
 
   /** Une création a reçu son id définitif : les gestes qui la suivent dans la file le retrouvent. */
@@ -416,14 +486,11 @@ export class ObjectiveCommands {
     }
   }
 
-  /**
-   * La réussite annoncée (s'il y a quelque chose à dire), ou ce qui n'a pas abouti signalé ; rien pour une écriture
-   * sautée ou orpheline.
-   */
-  private tell<T>(sent: Sent<T> | typeof CLOSED, action: FailedAction, success?: string): void {
+  /** La réussite annoncée, ou ce qui n'a pas abouti signalé ; rien pour une écriture sautée ou orpheline. */
+  private tell<T>(sent: Sent<T> | typeof CLOSED, action: FailedAction, success: string): void {
     if (sent === CLOSED || sent === SKIPPED) return;
-    if (!sent.success) this.report(action, sent.error);
-    else if (success) this.deps.announcements.announce(success);
+    if (sent.success) this.deps.announcements.announce(success);
+    else this.report(action, sent.error);
   }
 
   /** Une écriture acceptée a pu changer ce qui est fait : le serveur le dira à la prochaine lecture. */

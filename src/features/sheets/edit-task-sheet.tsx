@@ -1,5 +1,4 @@
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { EBouton, EFeuille, creerStyles } from '@empreinte-studio/react-native';
 import { hasErrors, toEditTaskInput, validateTaskEdit, type TaskForm } from '@/domain/objectives/forms';
 import type { Task } from '@/domain/objectives/objective';
@@ -12,7 +11,6 @@ import {
   useTaskItem,
   useTaskTrace,
 } from '@/state/objectives';
-import { routes } from '../shell/routes';
 import { GoneSheet, LoadingSheet, SheetActions, useCloseSheet } from './sheet-frame';
 import { SHEETS_TEXTS } from './sheets.texts';
 import { TaskFields } from './task-fields';
@@ -57,31 +55,11 @@ function EditTaskForm({
   readonly shownStageId: string | null;
 }) {
   const styles = useStyles();
-  const router = useRouter();
   const close = useCloseSheet();
   const commands = useObjectiveCommands();
   const { trace } = useTaskTrace();
   const stages = useStageOptions(rootId);
   const [initial] = useState(task);
-  const [erasing, setErasing] = useState(false);
-
-  // La feuille partie, la trace du pas prend sa place dans l'arête : le lecteur d'écran s'y pose, sur « Remettre ».
-  useEffect(() => {
-    if (!erasing) return undefined;
-    return () => trace.start(initial.id);
-  }, [erasing, trace, initial.id]);
-
-  const erase = () => {
-    if (erasing) return;
-    if (router.canGoBack()) {
-      setErasing(true);
-      router.back();
-      return;
-    }
-    // Ouverte par un lien, sans l'arête dessous : rien ne montrerait sa trace, le pas part tout de suite.
-    void commands.deleteTask(initial.id);
-    router.replace(routes.home);
-  };
   // L'étape affichée n'est gardée que si elle est bien une étape de cet objectif.
   const [form, setForm] = useState<TaskForm>(() => ({
     title: task.title,
@@ -91,6 +69,23 @@ function EditTaskForm({
   }));
   const [submitted, setSubmitted] = useState(false);
   const errors = submitted ? validateTaskEdit(form) : {};
+  // Effacé d'ici : la feuille partie, la trace du pas prend sa place dans l'arête, et le lecteur d'écran s'y pose,
+  // sur « Remettre ». Si rien dessous ne montre ce pas (une feuille ouverte par un lien), rien ne montrerait sa trace,
+  // ni ne la finirait : le pas part tout de suite.
+  const erased = useRef<'trace' | 'now' | null>(null);
+  useEffect(() => {
+    const leaving = erased;
+    return () => {
+      if (leaving.current === 'trace') trace.start(initial.id);
+    };
+  }, [trace, initial.id]);
+
+  const erase = () => {
+    if (erased.current) return;
+    erased.current = trace.canShow(initial.id) ? 'trace' : 'now';
+    if (erased.current === 'now') void commands.deleteTask(initial.id);
+    close();
+  };
 
   const save = () => {
     setSubmitted(true);

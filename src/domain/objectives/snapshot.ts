@@ -199,24 +199,34 @@ function insertAtPlace<T extends { readonly id: string }>(
 }
 
 /**
- * Remet à leur place des éléments effacés, quand l'effacement n'aboutit pas : chacun revient où il était, il ne
- * saute pas en bas de l'écran. Ce qui est déjà là (une relecture l'a rendu) reste tel quel. Ce qui a perdu son parent
- * entre-temps (son objectif, son étape, effacés à leur tour) ne revient pas : il n'aurait plus où aller.
+ * Les parents de ce qu'un effacement a retiré, hors de ce qu'il a retiré : l'objectif d'une étape effacée, l'étape
+ * d'un pas effacé. C'est là que ce qui a été effacé reviendrait.
  */
-export function restoreErased(snapshot: ObjectivesSnapshot, removed: RemovedItems): ObjectivesSnapshot {
+export function erasedParents(removed: RemovedItems): string[] {
   const removedIds = new Set(removed.objectives.map(({ item }) => item.id));
+  const parents = [
+    ...removed.objectives.map(({ item }) => item.parentId),
+    ...removed.tasks.map(({ item }) => item.objectiveId),
+  ];
+  return [...new Set(parents)].filter((id): id is string => id !== null && !removedIds.has(id));
+}
+
+/**
+ * Remet à leur place des éléments effacés, quand l'effacement n'aboutit pas : chacun revient où il était, il ne
+ * saute pas en bas de l'écran. Ce qui est déjà là (une relecture l'a rendu) reste tel quel. Rend null quand leur
+ * parent n'est plus dans la copie (effacé à son tour) : rien n'aurait où revenir.
+ */
+export function restoreErased(
+  snapshot: ObjectivesSnapshot,
+  removed: RemovedItems,
+): ObjectivesSnapshot | null {
   const present = new Set(snapshot.objectives.map((objective) => objective.id));
-  const orphaned = removed.objectives.some(
-    ({ item }) => item.parentId !== null && !removedIds.has(item.parentId) && !present.has(item.parentId),
-  );
-  if (orphaned) return snapshot;
-  const objectives = insertAtPlace(snapshot.objectives, removed.objectives);
-  const ids = new Set(objectives.map((objective) => objective.id));
-  const tasks = insertAtPlace(
-    snapshot.tasks,
-    removed.tasks.filter(({ item }) => ids.has(item.objectiveId)),
-  );
-  return { ...snapshot, objectives, tasks };
+  if (erasedParents(removed).some((parentId) => !present.has(parentId))) return null;
+  return {
+    ...snapshot,
+    objectives: insertAtPlace(snapshot.objectives, removed.objectives),
+    tasks: insertAtPlace(snapshot.tasks, removed.tasks),
+  };
 }
 
 export function setTaskDone(snapshot: ObjectivesSnapshot, taskId: string, done: boolean): ObjectivesSnapshot {

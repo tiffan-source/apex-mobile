@@ -41,13 +41,16 @@ function EraseObjectiveConfirmation({
   const router = useRouter();
   const close = useCloseSheet();
   const commands = useObjectiveCommands();
+  const { trace } = useTaskTrace();
   const [erased, setErased] = useState(false);
 
-  // Retour à ses objectifs, où il n'est plus. L'arête qu'on quitte le garde le temps de partir.
+  // Retour à ses objectifs, où il n'est plus. L'arête qu'on quitte le garde le temps de partir. Le pas dont la trace
+  // attendait part d'abord, pour de bon : il ne reviendra pas avec l'objectif si celui-ci revient.
   const erase = () => {
     if (erased) return;
     setErased(true);
     router.dismissTo(routes.home);
+    trace.flush();
     void commands.deleteObjective(objectiveId);
   };
 

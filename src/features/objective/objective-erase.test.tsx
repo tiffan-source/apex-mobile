@@ -72,6 +72,19 @@ describe('Effacer un pas', () => {
     await waitFor(() => expect(screen.getByText('Étape · faite')).toBeOnTheScreen());
   });
 
+  it('le pas qui part pour de bon ne réapparaît pas le temps que la copie prévienne l’écran', async () => {
+    const app = createTestApp();
+    semiMarathon(app);
+    await openEndurance(app);
+
+    await eraseFromActions('Sortie de 45 minutes');
+    await screen.findByText(tracePhrase('Sortie de 45 minutes'));
+    // La fin de la trace, sans laisser passer l'horloge : la copie n'a pas encore prévenu ceux qui la lisent.
+    await act(async () => app.services.objectives.trace.expire('t3'));
+    expect(screen.queryByRole('checkbox', { name: 'Sortie de 45 minutes' })).not.toBeOnTheScreen();
+    expect(screen.queryByText(tracePhrase('Sortie de 45 minutes'))).not.toBeOnTheScreen();
+  });
+
   it('une trace à la fois : un autre pas effacé fait partir celui qui attendait', async () => {
     const app = createTestApp();
     semiMarathon(app);
@@ -115,6 +128,19 @@ describe('Effacer un pas', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Remettre' }));
     expect(await screen.findByRole('checkbox', { name: 'Sortie de 45 minutes' })).toBeOnTheScreen();
     expect(app.objectives.calls).not.toContain('deleteTask');
+  });
+
+  it('depuis une feuille ouverte par un lien, sans l’arête dessous, le pas part tout de suite', async () => {
+    const app = createTestApp();
+    semiMarathon(app);
+    const router = await renderApp(app, '/pas/t3/modifier');
+
+    const sheet = await screen.findByTestId('feuille-pas');
+    await fireEvent.press(within(sheet).getByRole('button', { name: 'Effacer ce pas' }));
+
+    await waitFor(() => expect(taskIds(app)).not.toContain('t3'));
+    expect(router.getPathname()).toBe('/');
+    expect(app.services.objectives.trace.erasing$.get()).toBeNull();
   });
 
   it('un pas qui n’est pas effacé revient à sa place, et la note le dit', async () => {
@@ -163,6 +189,35 @@ describe('Effacer une étape', () => {
     await waitFor(() => expect(app.objectives.objectives.map((item) => item.id)).not.toContain('s2'));
     expect(taskIds(app)).toEqual(['t1']);
     await waitFor(() => expect(app.announcer.said.map((item) => item.text)).toContain('Étape effacée.'));
+  });
+
+  it('le pas dont la trace attendait part d’abord, et ne revient pas avec l’étape refusée', async () => {
+    const app = createTestApp();
+    semiMarathon(app);
+    await openEndurance(app);
+
+    await eraseFromActions('Sortie de 45 minutes');
+    await screen.findByText(tracePhrase('Sortie de 45 minutes'));
+    app.objectives.failNext('deleteObjective', 'NETWORK_UNREACHABLE');
+    await fireEvent.press(screen.getByRole('button', { name: "Effacer l'étape" }));
+    const sheet = await screen.findByTestId('feuille-effacer-etape');
+    // Le pas qui part déjà ne compte plus dans ce que l'étape emporte.
+    expect(
+      within(sheet).getByText('Endurance emporte son pas, déjà fait. Ça ne se récupère pas.'),
+    ).toBeOnTheScreen();
+    await fireEvent.press(within(sheet).getByRole('button', { name: "Effacer l'étape" }));
+
+    await waitFor(() =>
+      expect(app.objectives.calls.filter((call) => call.startsWith('delete'))).toEqual([
+        'deleteTask',
+        'deleteObjective',
+      ]),
+    );
+    // L'étape revient (sans ce pas, elle est faite : le serveur le dit).
+    expect(await screen.findByRole('button', { name: /^Endurance : / })).toBeOnTheScreen();
+    expect(screen.getByText("L'arête · 3 étapes")).toBeOnTheScreen();
+    expect(taskIds(app)).not.toContain('t3');
+    expect(screen.queryByText(tracePhrase('Sortie de 45 minutes'))).not.toBeOnTheScreen();
   });
 
   it('« Garder l’étape » referme la validation sans rien effacer', async () => {

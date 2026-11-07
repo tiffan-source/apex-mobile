@@ -501,14 +501,15 @@ describe('effacer', () => {
     expect(t.announcer.said).toEqual([]);
   });
 
-  it('un pas qui n’est pas effacé revient à sa place, et le dit', async () => {
+  it('un pas qui n’est pas effacé revient à sa place, le dit, et le serveur est relu', async () => {
     const t = setup(seedPlan);
     await t.load();
     t.gateway.failNext('deleteTask', 'NETWORK_UNREACHABLE');
     await t.commands.deleteTask('p1');
     expect(ids(t.snapshot().tasks)).toEqual(['p1', 'p2', 'p3']);
     expect(t.announcements.report$.get()).toBe(FAILURE_REPORTS.eraseTask);
-    expect(t.onObjectivesChanged).not.toHaveBeenCalled();
+    // Le serveur dit ce qui est vrai : la réponse a pu se perdre après l'effacement.
+    expect(t.onObjectivesChanged).toHaveBeenCalledTimes(1);
   });
 
   it('un pas déjà effacé ailleurs (introuvable) l’est : rien à signaler', async () => {
@@ -585,7 +586,7 @@ describe('effacer', () => {
     expect(ids(t.snapshot().objectives)).toEqual(['semi', 'endurance', 'mental']);
     expect(ids(t.snapshot().tasks)).toEqual(['p1', 'p2', 'p3']);
     expect(t.announcements.report$.get()).toBe(FAILURE_REPORTS.eraseStage);
-    expect(t.onObjectivesChanged).not.toHaveBeenCalled();
+    expect(t.onObjectivesChanged).toHaveBeenCalledTimes(1);
   });
 
   it('un objectif part avec ses étapes et leurs pas, s’annonce, sans relire', async () => {
@@ -663,13 +664,45 @@ describe('effacer', () => {
     expect(ids(t.snapshot().tasks)).toEqual(['p3']);
   });
 
-  it('un pas dont l’étape est effacée pendant qu’il partait ne revient pas sans elle', async () => {
+  it('un pas refusé, son étape effacée pendant qu’il partait : il part avec elle, sans rien signaler', async () => {
     const t = setup(seedPlan);
     await t.load();
     t.gateway.failNext('deleteTask', 'NETWORK_UNREACHABLE');
     await Promise.all([t.commands.deleteTask('p1'), t.commands.deleteObjective('endurance')]);
     expect(t.snapshot().tasks.map((task) => task.id)).toEqual(['p3']);
     expect(ids(t.gateway.objectives)).toEqual(['semi', 'mental']);
+    expect(t.announcements.report$.get()).toBeNull();
+  });
+
+  it('un pas et son étape, tous deux refusés : l’étape revient avec ce pas, et une seule note le dit', async () => {
+    const t = setup(seedPlan);
+    await t.load();
+    t.gateway.failNext('deleteTask', 'NETWORK_UNREACHABLE');
+    t.gateway.failNext('deleteObjective', 'NETWORK_UNREACHABLE');
+    await Promise.all([t.commands.deleteTask('p1'), t.commands.deleteObjective('endurance')]);
+    expect(ids(t.snapshot().objectives)).toEqual(['semi', 'endurance', 'mental']);
+    expect(ids(t.snapshot().tasks)).toEqual(['p1', 'p2', 'p3']);
+    expect(t.announcer.said.map((item) => item.text)).toEqual([FAILURE_REPORTS.eraseStage]);
+  });
+
+  it('une étape et son objectif, tous deux refusés : l’objectif revient avec son étape et ses pas', async () => {
+    const t = setup(seedPlan);
+    await t.load();
+    t.gateway.failNext('deleteObjective', 'NETWORK_UNREACHABLE');
+    t.gateway.failNext('deleteObjective', 'NETWORK_UNREACHABLE');
+    await Promise.all([t.commands.deleteObjective('endurance'), t.commands.deleteObjective('semi')]);
+    expect(ids(t.snapshot().objectives)).toEqual(['semi', 'endurance', 'mental']);
+    expect(ids(t.snapshot().tasks)).toEqual(['p1', 'p2', 'p3']);
+    expect(t.announcer.said.map((item) => item.text)).toEqual([FAILURE_REPORTS.eraseObjective]);
+  });
+
+  it('un pas coché, puis son étape effacée, les deux refusés : le pas revient non coché', async () => {
+    const t = setup(seedPlan);
+    await t.load();
+    t.gateway.failNext('setTaskDone', 'NETWORK_UNREACHABLE');
+    t.gateway.failNext('deleteObjective', 'NETWORK_UNREACHABLE');
+    await Promise.all([t.commands.setTaskDone('p2', true), t.commands.deleteObjective('endurance')]);
+    expect(t.snapshot().tasks.find((task) => task.id === 'p2')?.done).toBe(false);
   });
 
   it('chaque phrase de l’effacement parle comme Empreinte', () => {

@@ -37,12 +37,15 @@ function EraseStageConfirmation({
 }) {
   const close = useCloseSheet();
   const commands = useObjectiveCommands();
+  const { trace } = useTaskTrace();
   const [erased, setErased] = useState(false);
 
+  // Le pas dont la trace attendait part d'abord, pour de bon : il ne reviendra pas avec l'étape si elle revient.
   const erase = () => {
     if (erased) return;
     setErased(true);
     close();
+    trace.flush();
     void commands.deleteObjective(stageId);
   };
 

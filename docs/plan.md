@@ -52,7 +52,7 @@ joue ce rôle), les statistiques, les toasts.
 ## 4. État
 
 - Tous les écrans, feuilles et gestes de la V1, sur le contrat d'Apex Brain.
-- 682 tests (Jest), dont les parcours de chaque écran sur les vraies routes, en iOS et en Android ;
+- 695 tests (Jest), dont les parcours de chaque écran sur les vraies routes, en iOS et en Android ;
   lint (avec la règle de dépendance), types (avec les routes typées), format.
 - Les bundles iOS et Android se construisent (`npm run export`) ; `expo prebuild` produit les projets
   natifs (icônes, écran de lancement Jour et Nuit).

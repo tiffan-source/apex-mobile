@@ -63,8 +63,9 @@ Erasing has three weights (mockup « Effacer », Empreinte 0.6): a step is swipe
 ce pas » at the foot of its sheet) and its trace (`ETrace`, « Remettre ») takes its place — `TaskTrace` keeps it,
 one at a time, and erases it for good when the trace ends; a stage goes after an alert sheet
 (`/etapes/:id/effacer`); an objective from the foot of « Modifier l'objectif », its name rewritten
-(`/objectifs/:id/effacer`). `deleteTask`/`deleteObjective` remove at once what depends on the element, put it
-back as the server has it if refused, and treat « not found » as already erased. No « Laisser filer » until
+(`/objectifs/:id/effacer`). Any new erase first erases the waiting step for good. `deleteTask`/`deleteObjective`
+remove at once what depends on the element, put it back as the server has it if refused (handing it to its parent's
+pending erase when there is one) then re-read, and treat « not found » as already erased. No « Laisser filer » until
 Apex Brain has it.
 
 Reads go through TanStack Query (one flat snapshot of objectives per user); **writes never use

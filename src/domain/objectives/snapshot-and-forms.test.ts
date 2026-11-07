@@ -13,6 +13,7 @@ import {
   addTask,
   eraseObjective,
   eraseTask,
+  erasedParents,
   isTemporaryId,
   keepOptimistic,
   removeObjective,
@@ -132,21 +133,27 @@ describe('effacer dans la copie', () => {
   it('ce qui revient retrouve sa place, sans doublon', () => {
     const { snapshot: after, removed } = eraseObjective(plan(), 'e1');
     const back = restoreErased(after, removed);
-    expect(ids(back.objectives)).toEqual(['o', 'e1', 's', 'e2', 'x']);
-    expect(ids(back.tasks)).toEqual(['a', 'b', 'c', 'd']);
+    expect(back && ids(back.objectives)).toEqual(['o', 'e1', 's', 'e2', 'x']);
+    expect(back && ids(back.tasks)).toEqual(['a', 'b', 'c', 'd']);
     // Une relecture l'a déjà rendu : il n'est pas remis deux fois.
-    expect(ids(restoreErased(back, removed).objectives)).toEqual(['o', 'e1', 's', 'e2', 'x']);
+    const again = back && restoreErased(back, removed);
+    expect(again && ids(again.objectives)).toEqual(['o', 'e1', 's', 'e2', 'x']);
   });
 
-  it('ce qui a perdu son parent entre-temps ne revient pas', () => {
+  it('ce qui a été effacé reviendrait chez son parent : l’objectif d’une étape, l’étape d’un pas', () => {
+    expect(erasedParents(eraseObjective(plan(), 'e1').removed)).toEqual(['o']);
+    expect(erasedParents(eraseObjective(plan(), 'o').removed)).toEqual([]);
+    expect(erasedParents(eraseTask(plan(), 'c').removed)).toEqual(['e2']);
+  });
+
+  it('rien ne revient quand son parent n’est plus là', () => {
     const { snapshot: withoutStage, removed } = eraseObjective(plan(), 'e1');
-    const withoutObjective = eraseObjective(withoutStage, 'o').snapshot;
-    expect(restoreErased(withoutObjective, removed)).toEqual(withoutObjective);
+    expect(restoreErased(eraseObjective(withoutStage, 'o').snapshot, removed)).toBeNull();
 
     const { snapshot: withoutTask, removed: task } = eraseTask(plan(), 'c');
-    const withoutItsStage = eraseObjective(withoutTask, 'e2').snapshot;
-    expect(ids(restoreErased(withoutItsStage, task).tasks)).toEqual(['a', 'b', 'd']);
-    expect(ids(restoreErased(withoutTask, task).tasks)).toEqual(['a', 'b', 'c', 'd']);
+    expect(restoreErased(eraseObjective(withoutTask, 'e2').snapshot, task)).toBeNull();
+    const back = restoreErased(withoutTask, task);
+    expect(back && ids(back.tasks)).toEqual(['a', 'b', 'c', 'd']);
   });
 });
 
