@@ -126,7 +126,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["ObjectivesController_remove_v1"];
         options?: never;
         head?: never;
         patch: operations["ObjectivesController_edit_v1"];
@@ -190,7 +190,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["TasksController_remove_v1"];
         options?: never;
         head?: never;
         patch: operations["TasksController_edit_v1"];
@@ -670,6 +670,44 @@ export interface operations {
             };
         };
     };
+    ObjectivesController_remove_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectiveId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Supprimé, avec tout ce qui en dépend */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description OBJECTIVE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
     ObjectivesController_edit_v1: {
         parameters: {
             query?: never;
@@ -849,6 +887,44 @@ export interface operations {
                         dueDate?: string;
                         done: boolean;
                     }[];
+                };
+            };
+        };
+    };
+    TasksController_remove_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pas supprimé */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description TASK_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
                 };
             };
         };
