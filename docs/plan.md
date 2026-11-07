@@ -12,7 +12,7 @@ diffère du web et pourquoi, et ce qui reste à faire. Les décisions sont dans 
   stores (`chore/stores`), dont la file d'écritures et les gestes optimistes sont repris.
 - **Contrat** : `docs/api.md` d'Apex Brain et son document OpenAPI, copié dans
   `openapi/apex-brain.openapi.json`.
-- **Identité** : Empreinte (tokens, `noyau`, composants React Native 0.4), et le kit CSS d'Empreinte
+- **Identité** : Empreinte (tokens, `noyau`, composants React Native 0.6), et le kit CSS d'Empreinte
   pour ce que les composants React Native n'ont pas encore (menus, feuilles, matrice, conversation…).
 
 ## 2. Ce qui est repris d'Apex V1
@@ -25,6 +25,7 @@ diffère du web et pourquoi, et ce qui reste à faire. Les décisions sont dans 
 | L'arête `/objectifs/:id`     | L'arête (repli « Faites » au-delà de 8 étapes), étape choisie et ses pas, pas sans étape, feuilles        | Pareil ; l'arête est dressée (verticale, noms entiers), l'étape choisie s'ouvre dessous et vient à l'écran      |
 | Akari `/objectifs/:id/akari` | Conversation en Markdown, invitation, demande d'accord, ajouts sur l'arête, zone de réponse               | Pareil ; le résumé de l'arête est un repli en tête de la conversation                                           |
 | La matrice `/matrice`        | Retirée en attendant que l'API rende le quadrant d'un pas                                                 | Vue d'ensemble des quatre panneaux, le quadrant ouvert dessous ; aucun pas ne s'y déplace                       |
+| Effacer                      | Un pas part tout de suite (trace « Remettre »), une étape après validation, un objectif nom réécrit       | Pareil ; un pas se glisse, ou part du pied de sa feuille ; l'étape se valide dans une feuille d'alerte          |
 | Réglages                     | Menu de la coque : le thème                                                                               | Feuille : la personne, le thème, la déconnexion                                                                 |
 | Annonces                     | `AnnoncesStore` : réussites dites aux lecteurs d'écran, signalements dans une note d'Akari                | `AnnouncementCenter`, mêmes phrases ; VoiceOver et TalkBack                                                     |
 
@@ -43,17 +44,22 @@ joue ce rôle), les statistiques, les toasts.
   sur un téléphone, la matrice n'est pas à côté.
 - **La typographie française** (espaces insécables avant « ? », « : »… et dans les guillemets) est posée
   sur tous les textes et sur les répliques d'Akari, comme le web le fait dans ses gabarits.
+- **Effacer, sur un téléphone** (maquette « Effacer », mobile) : un pas se glisse vers la gauche (`EGlissable`)
+  plutôt qu'un ×, et part aussi du pied de sa feuille (« Effacer ce pas »), le geste visible ; VoiceOver et
+  TalkBack ont « Effacer » dans les actions du pas. La validation d'une étape est une feuille d'alerte, avec
+  l'arête en aperçu (l'étape qui sort du plan en pointillés), plutôt qu'une validation dépliée sur place.
 
 ## 4. État
 
 - Tous les écrans, feuilles et gestes de la V1, sur le contrat d'Apex Brain.
-- 601 tests (Jest), dont les parcours de chaque écran sur les vraies routes, en iOS et en Android ;
+- 682 tests (Jest), dont les parcours de chaque écran sur les vraies routes, en iOS et en Android ;
   lint (avec la règle de dépendance), types (avec les routes typées), format.
 - Les bundles iOS et Android se construisent (`npm run export`) ; `expo prebuild` produit les projets
   natifs (icônes, écran de lancement Jour et Nuit).
 - Vérifié dans l'aperçu web, à 375 points, en Jour et en Nuit, contre un Apex Brain en mémoire :
   connexion, objectifs, arête, feuilles, sélection, Akari (Markdown, invitation, accord, ajout), matrice
-  (filtres), nouvel objectif, réglages.
+  (filtres), nouvel objectif, réglages, effacer (glisser un pas, sa trace, la validation d'une étape, le nom
+  d'un objectif réécrit).
 
 ## 5. Reste à faire
 
@@ -80,7 +86,5 @@ joue ce rôle), les statistiques, les toasts.
 - Reporter dans le client web la règle du retour en arrière (`PendingChanges`) : ses stores remettent la
   valeur d'avant le geste, et cocher puis décocher hors connexion y laisse le pas coché alors que la base
   ne l'est pas.
-- Supprimer un objectif, une étape ou un pas : Apex Brain le permet (`DELETE`), le geste manque à
-  l'application, et le contrat copié ici ne porte pas encore ces deux routes.
 - Ce qui attend Apex Brain, comme pour le web : laisser filer un objectif, une étape ou un pas ; la
   pause et la reprise ; les domaines de vie ; les échéances des pas ; les empreintes et les paliers.

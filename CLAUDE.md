@@ -56,8 +56,16 @@ Layers in `src/`, enforced by `no-restricted-imports` in `eslint.config.js`:
 - `composition/` — the composition root (`assembleServices`), used by production and tests alike.
 
 Stages and steps have no order: they are independent, and a stage or an objective is done or not. That comes
-from the API (`done`): the client shows it and counts, it decides nothing. After a step is checked, added or
-edited, `ObjectiveCommands` re-reads the objectives (`onObjectivesChanged`).
+from the API (`done`): the client shows it and counts, it decides nothing. After a step is checked, added,
+edited or erased, or a stage erased, `ObjectiveCommands` re-reads the objectives (`onObjectivesChanged`).
+
+Erasing has three weights (mockup « Effacer », Empreinte 0.6): a step is swiped away (`EGlissable`, or « Effacer
+ce pas » at the foot of its sheet) and its trace (`ETrace`, « Remettre ») takes its place — `TaskTrace` keeps it,
+one at a time, and erases it for good when the trace ends; a stage goes after an alert sheet
+(`/etapes/:id/effacer`); an objective from the foot of « Modifier l'objectif », its name rewritten
+(`/objectifs/:id/effacer`). `deleteTask`/`deleteObjective` remove at once what depends on the element, put it
+back as the server has it if refused, and treat « not found » as already erased. No « Laisser filer » until
+Apex Brain has it.
 
 Reads go through TanStack Query (one flat snapshot of objectives per user); **writes never use
 `useMutation`**: they go through `ObjectiveCommands` → `WriteQueue`, as in the web client's stores — one
