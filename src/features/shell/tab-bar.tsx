@@ -1,6 +1,5 @@
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
-import type { NomIcone } from '@empreinte-studio/react-native';
-import { BarreOnglets } from '@/ui/barre-onglets';
+import { EBarreOnglets, type NomIcone } from '@empreinte-studio/react-native';
 
 /** L'icône de chaque onglet, par nom de route. */
 const ICONES: Readonly<Record<string, NomIcone>> = {
@@ -14,7 +13,7 @@ const ICONES: Readonly<Record<string, NomIcone>> = {
  */
 export function TabBar({ state, descriptors, emitter, navigateToTab, insets }: BottomTabBarProps) {
   return (
-    <BarreOnglets
+    <EBarreOnglets
       basSur={insets.bottom}
       onglets={state.routes.map((route, index) => {
         const actif = index === state.index;

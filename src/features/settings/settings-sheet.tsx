@@ -1,16 +1,22 @@
 import Constants from 'expo-constants';
 import { View } from 'react-native';
-import { EBouton, ETexte, creerStyles, useTheme } from '@empreinte-studio/react-native';
-import { identityOf, initialOf } from '@/domain/session/user';
+import {
+  EBouton,
+  EFeuille,
+  EInitiale,
+  EListeChoix,
+  ETexte,
+  creerStyles,
+  useTheme,
+} from '@empreinte-studio/react-native';
+import { identityOf } from '@/domain/session/user';
 import { useAnnouncements } from '@/state/announcements';
 import { useCurrentUser, useSessionActions } from '@/state/session';
-import { Feuille } from '@/ui/feuille';
 import { pas } from '@/ui/fondations';
-import { ListeChoix } from '@/ui/liste-choix';
 import { useCloseSheet } from '../sheets/sheet-frame';
 import { SETTINGS_TEXTS as T } from './settings.texts';
 
-const useStyles = creerStyles(({ couleurs }) => ({
+const useStyles = creerStyles(() => ({
   section: {
     gap: pas['pas-3'],
   },
@@ -18,13 +24,6 @@ const useStyles = creerStyles(({ couleurs }) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: pas['pas-3'],
-  },
-  initiale: {
-    width: pas['pas-8'],
-    height: pas['pas-8'],
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: couleurs.creux,
   },
   identite: {
     flex: 1,
@@ -48,7 +47,7 @@ export function SettingsSheet() {
   const version = Constants.expoConfig?.version;
 
   return (
-    <Feuille
+    <EFeuille
       titre={T.title}
       onFermer={close}
       actions={
@@ -62,7 +61,7 @@ export function SettingsSheet() {
         <ETexte variante="section" role="heading">
           {T.theme}
         </ETexte>
-        <ListeChoix
+        <EListeChoix
           libelle={T.theme}
           options={T.themeChoices}
           valeur={preference}
@@ -80,9 +79,7 @@ export function SettingsSheet() {
         </ETexte>
         {identity ? (
           <View style={styles.personne}>
-            <View style={styles.initiale} aria-hidden>
-              <ETexte variante="voix">{initialOf(user)}</ETexte>
-            </View>
+            <EInitiale nom={identity} />
             <ETexte variante="detail" numberOfLines={1} style={styles.identite}>
               {identity}
             </ETexte>
@@ -101,6 +98,6 @@ export function SettingsSheet() {
           {T.version(version)}
         </ETexte>
       ) : null}
-    </Feuille>
+    </EFeuille>
   );
 }

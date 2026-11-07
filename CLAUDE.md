@@ -8,7 +8,7 @@ Apex mobile is the iOS and Android client of Apex (objectives → stages → ste
 the Akari AI assistant). It reproduces Apex V1 (the Angular web client, repo `tiffan-source/apex`) in
 **React Native with Expo SDK 58** (React Native 0.88, React 19.3, TypeScript 6, Expo Router), talks to
 **Apex Brain** (repo `tiffan-source/apex-brain`, NestJS REST API) and draws with **Empreinte React
-Native** (`@empreinte-studio/react-native`). Code is in English, except the UI compositions in
+Native** (`@empreinte-studio/react-native`). Code is in English, except the layout compositions in
 `src/ui`, which use Empreinte's French API; **docs, comments, UI copy and commit messages are in
 French** — match that.
 
@@ -47,8 +47,9 @@ Layers in `src/`, enforced by `no-restricted-imports` in `eslint.config.js`:
 - `infrastructure/` — adapters: `openapi-fetch` client with token refresh and one replay on `401`,
   `http-*-gateway.ts`, `expo-secure-store` token store, AsyncStorage preferences, screen-reader announcer.
 - `state/` — TanStack Query (keys carry the user id), hooks over the services, theme, current day.
-- `ui/` — compositions on Empreinte with a French API (`Feuille`, `Menu`, `Selection`, `Quadrants`,
-  `Arete`, `Fil`, `Prose`…). They know nothing of Apex (no `domain` import): upstream candidates.
+- `ui/` — Apex's own layout on Empreinte, with a French API (`Ecran`, `EnTete`, `Panneau`, `Trame`, `Bandeau`,
+  `Signalement`). No `domain` import. Everything a sibling app could reuse belongs in Empreinte, not here
+  (`EFeuille`, `EMenu`, `ESelection`, `EArete`, `EFil`…; `EProse` and `EChampDate` from their own entry points).
 - `features/` — screens, one folder per feature, copy in `*.texts.ts` (wrapped in `typesetTexts`).
 - `app/` — Expo Router routes; each only renders a screen. `(app)` is protected by `Stack.Protected`;
   `(onglets)` holds the two tabs; sheets are `transparentModal` routes.
@@ -71,7 +72,8 @@ sentence (`domain/objectives/messages.ts`, `domain/session/auth.ts`).
 
 ## Conventions
 
-- Empreinte first: `ETexte` variants, `ETrame`/`ESurface`, `EBouton` (one `sceau` per screen), colors from
+- Empreinte first: a missing generic component goes upstream (`docs/empreinte-amont.md`), not in `src/ui`.
+  `ETexte` variants, `ETrame`/`ESurface`, `EBouton` (one `sceau` per screen), colors from
   `useTheme()` (Jour/Nuit), spacing/rules/corners from tokens (`src/ui/fondations.ts`), one font per weight
   via `police()` (never `fontWeight`), no hard-coded color, no rounded corner, reduced-motion fallback.
 - Voice: _tu_, short sentences, never « erreur », « échec », « succès », « supprimer », « en retard »,

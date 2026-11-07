@@ -72,8 +72,8 @@ joue ce rôle), les statistiques, les toasts.
 
 ### Ensuite
 
-- Remonter dans Empreinte ce que `src/ui` compose ([`empreinte-amont.md`](./empreinte-amont.md)), puis
-  le remplacer ici par les composants publiés.
+- Remonter dans le noyau la typographie française et les mots de la voix
+  ([`empreinte-amont.md`](./empreinte-amont.md)).
 - Garder le contrat à jour : copier `/docs-json` d'Apex Brain dans `openapi/`, puis
   `npm run api:types`.
 - Des tests de bout en bout sur appareil (Maestro, par exemple), sur un Apex Brain de test.

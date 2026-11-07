@@ -6,7 +6,7 @@ export const unstable_settings = { anchor: '(onglets)' };
 
 /**
  * Une feuille se pose sur l'écran qui l'ouvre, transparente : elle dessine elle-même son voile et se déplie
- * (`Feuille`). Le geste de retour d'Android la referme.
+ * (`EFeuille`). Le geste de retour d'Android la referme.
  */
 const SHEET = {
   presentation: 'transparentModal',

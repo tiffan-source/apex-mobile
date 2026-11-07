@@ -1,6 +1,6 @@
 import { CLIENT_ERRORS } from '../shared/result';
 import { AUTH_FORM_MESSAGES, AUTH_SERVER_MESSAGES, authReport, validateCredentials } from './auth';
-import { expiresSoon, identityOf, initialOf } from './user';
+import { expiresSoon, identityOf } from './user';
 
 describe('les identifiants', () => {
   it('demandent une adresse complète et un mot de passe assez long', () => {
@@ -64,8 +64,6 @@ describe('les réponses du serveur', () => {
 describe('la personne et sa session', () => {
   it('se nomme par son nom, sinon son adresse', () => {
     expect(identityOf({ id: '1', name: ' ', email: 'anlyou@apex.fr' })).toBe('anlyou@apex.fr');
-    expect(initialOf({ id: '1', name: 'élodie', email: '' })).toBe('É');
-    expect(initialOf(null)).toBe('');
   });
 
   it('sait quand renouveler le jeton', () => {

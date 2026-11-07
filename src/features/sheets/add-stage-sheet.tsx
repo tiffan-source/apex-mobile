@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { EChamp, ESaisie } from '@empreinte-studio/react-native';
+import { EChamp, EFeuille, ESaisie } from '@empreinte-studio/react-native';
 import { hasErrors, validateStageTitle } from '@/domain/objectives/forms';
 import { useObjectiveCommands } from '@/state/objectives';
-import { Feuille } from '@/ui/feuille';
 import { SheetActions, useCloseSheet } from './sheet-frame';
 import { SHEETS_TEXTS } from './sheets.texts';
 
@@ -27,7 +26,7 @@ export function AddStageSheet({ objectiveId }: { readonly objectiveId: string })
   };
 
   return (
-    <Feuille
+    <EFeuille
       titre={T.title}
       onFermer={close}
       actions={<SheetActions label={SHEETS_TEXTS.add} onConfirm={add} onCancel={close} testID="ajouter" />}
@@ -43,6 +42,6 @@ export function AddStageSheet({ objectiveId }: { readonly objectiveId: string })
           testID="champ-nom-etape"
         />
       </EChamp>
-    </Feuille>
+    </EFeuille>
   );
 }

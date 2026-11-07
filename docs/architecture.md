@@ -11,7 +11,7 @@ change, c'est le bord : des écrans React Native et un serveur joint en HTTP.
                 │
             src/features  (les écrans, leurs textes)
            ╱           ╲
-   src/ui (compositions        src/state (TanStack Query, hooks des services,
+   src/ui (mise en page        src/state (TanStack Query, hooks des services,
    sur Empreinte, en           thème, jour courant)
    français, sans domaine)          │
                                src/application (services, commandes, file d'écritures, ports)
@@ -41,9 +41,9 @@ Les tests et `src/testing` échappent à la règle : ils assemblent les vrais se
 
 Deux conséquences guident le code :
 
-- **Les compositions d'interface (`src/ui`) ignorent Apex.** Elles reçoivent des textes, des nombres et
-  des rappels ; elles parlent la langue d'Empreinte (`Feuille`, `Selection`, `Arete`, `Quadrants`…), en
-  français comme ses composants, pour pouvoir y remonter telles quelles (voir
+- **La mise en page d'Apex (`src/ui`) ignore le domaine.** Elle reçoit des textes, des nombres et des
+  rappels ; elle parle la langue d'Empreinte (`Ecran`, `EnTete`, `Panneau`…), en français comme ses
+  composants. Ce qu'une autre application de la suite réutiliserait vit dans Empreinte (voir
   [`empreinte-amont.md`](./empreinte-amont.md)).
 - **Les règles (`src/domain`) sont du TypeScript pur**, testées sans rendu : vues des cartes et de
   l'arête, matrice d'Eisenhower, formulaires, conversation d'Akari, voix, dates, typographie.
@@ -169,9 +169,11 @@ thème et les polices ne sont pas prêts.
   `EBouton` (sceau, trait, nu), `ECarte`, `EPas`, `EListe`/`ETache`, `EChamp`/`ESaisie`, `ENote`,
   `EMarque`, `EIcone`, `EEmpreinte`, le gardien du sceau (`GardienSceau`, `useSceau`). Les couleurs viennent du thème (`useTheme`),
   Jour ou Nuit ; aucune couleur n'est écrite en dur.
-- **Ce qui manque à Empreinte React Native 0.4** est composé dans `src/ui`, dans sa langue :
-  `Feuille`, `Deroulant`, `Menu`, `Selection`, `Filtres`, `BarreOnglets`, `Quadrants`, `Arete`, `Fil`,
-  `Composeur`, `Prose`, `Repli`, `FilAriane`, `ChampDate`, `ListeChoix`, `Ecran`, `EnTete`, `Panneau`.
+  Depuis la 0.5, aussi ce qu'Apex avait composé en attendant (ADR 0006) : `EFeuille`, `EMenu`, `ESelection`,
+  `EFiltres`, `EBarreOnglets`, `EQuadrants`, `EArete`, `EFil`, `EJournal`, `EComposeur`, `ERepli`, `EFilAriane`,
+  `EListeChoix`, `EInitiale`, `ECarteObjectif`, puis `EProse` et `EChampDate`, chacun à son point d'entrée.
+- **La mise en page d'Apex** reste dans `src/ui`, dans la langue d'Empreinte : `Ecran`, `EnTete`, `Panneau`,
+  `Trame`, `Bandeau`, `Signalement`.
 - **La voix** : les textes des écrans passent par `voiceIssues` (`features/voice.test.ts`) — tutoiement,
   jamais « erreur », « échec », « supprimer », « en retard », de pourcentage, de point d'exclamation ni
   d'emoji.

@@ -2,13 +2,17 @@ import { useRouter } from 'expo-router';
 import { useRef, useState, type RefObject } from 'react';
 import { View, type ScrollViewInstance, type ViewInstance } from 'react-native';
 import {
+  EArete,
   EBouton,
+  EFilAriane,
   EIcone,
+  ELegendeArete,
   EListe,
   ENote,
   EPas,
   ETache,
   ETexte,
+  type EtapeAreteIdentifiee,
   creerStyles,
 } from '@empreinte-studio/react-native';
 import { TITRES_QUADRANTS } from '@/domain/objectives/eisenhower';
@@ -25,10 +29,8 @@ import { CRUMB_TITLE_MAX, shortTitle } from '@/domain/shared/titles';
 import { useAnnouncements, useReport } from '@/state/announcements';
 import { useObjectiveCommands, useObjectiveDetail } from '@/state/objectives';
 import { useToday } from '@/state/today';
-import { Arete, LegendeArete, type EtapeAreteApex } from '@/ui/arete';
 import { Ecran, amenerALEcran } from '@/ui/ecran';
 import { EnTete } from '@/ui/en-tete';
-import { FilAriane } from '@/ui/fil-ariane';
 import { pas } from '@/ui/fondations';
 import { EnRetrait, MARGE_PANNEAU, Panneau, Trame } from '@/ui/panneau';
 import { ReportNote } from '../shell/report-note';
@@ -205,7 +207,7 @@ export function ObjectiveScreen({ objectiveId }: { readonly objectiveId: string 
         <ObjectiveContent detail={detail} hasReport={!!report} scroller={scroller} />
       ) : (
         <>
-          <FilAriane
+          <EFilAriane
             miettes={[
               { libelle: SHELL_TEXTS.crumbs.objectives, onPress: () => router.dismissTo(routes.home) },
             ]}
@@ -248,7 +250,7 @@ function ObjectiveContent({
 
   const toggle = (taskId: string, done: boolean) => void commands.setTaskDone(taskId, done);
 
-  const chooseStage = (etape: EtapeAreteApex) => {
+  const chooseStage = (etape: EtapeAreteIdentifiee) => {
     const id = etape.id ?? foldedDoneStageId(stages, openId);
     const chosen = stages.find((item) => item.id === id);
     if (!chosen) return;
@@ -263,7 +265,7 @@ function ObjectiveContent({
     <>
       <EnTete
         filAriane={
-          <FilAriane
+          <EFilAriane
             miettes={[
               { libelle: SHELL_TEXTS.crumbs.objectives, onPress: () => router.dismissTo(routes.home) },
               { libelle: shortTitle(objective.title, CRUMB_TITLE_MAX) },
@@ -297,9 +299,9 @@ function ObjectiveContent({
               <ETexte variante="section" role="heading">
                 {T.arete(stages.length)}
               </ETexte>
-              <LegendeArete />
+              <ELegendeArete />
             </View>
-            <Arete
+            <EArete
               objectif={objective.title}
               etapes={detail.aretes}
               interactive

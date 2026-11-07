@@ -1,7 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useCallback } from 'react';
-import { EBouton, ETexte } from '@empreinte-studio/react-native';
-import { Feuille } from '@/ui/feuille';
+import { EBouton, EFeuille, ETexte } from '@empreinte-studio/react-native';
 import { routes } from '../shell/routes';
 import { LoadingLine } from '../shell/screen-states';
 import { SHEETS_TEXTS } from './sheets.texts';
@@ -43,7 +42,7 @@ export function SheetActions({
 export function GoneSheet({ title, text }: { readonly title: string; readonly text: string }) {
   const close = useCloseSheet();
   return (
-    <Feuille
+    <EFeuille
       titre={title}
       onFermer={close}
       actions={
@@ -53,7 +52,7 @@ export function GoneSheet({ title, text }: { readonly title: string; readonly te
       }
     >
       <ETexte>{text}</ETexte>
-    </Feuille>
+    </EFeuille>
   );
 }
 
@@ -61,8 +60,8 @@ export function GoneSheet({ title, text }: { readonly title: string; readonly te
 export function LoadingSheet({ title }: { readonly title: string }) {
   const close = useCloseSheet();
   return (
-    <Feuille titre={title} onFermer={close}>
+    <EFeuille titre={title} onFermer={close}>
       <LoadingLine text={SHEETS_TEXTS.loading} />
-    </Feuille>
+    </EFeuille>
   );
 }

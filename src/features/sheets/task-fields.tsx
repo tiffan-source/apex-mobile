@@ -1,10 +1,9 @@
 import { View } from 'react-native';
-import { EChamp, ESaisie, ETexte, creerStyles } from '@empreinte-studio/react-native';
+import { EChamp, ESaisie, ESelection, ETexte, creerStyles } from '@empreinte-studio/react-native';
 import { IMPORTANCE_OPTIONS, URGENCY_OPTIONS, quadrantOf } from '@/domain/objectives/eisenhower';
 import type { StageOption } from '@/domain/objectives/objective-detail';
 import type { FormErrors, TaskForm } from '@/domain/objectives/forms';
 import { pas } from '@/ui/fondations';
-import { Selection } from '@/ui/selection';
 import { SHEETS_TEXTS } from './sheets.texts';
 
 const T = SHEETS_TEXTS.task;
@@ -59,7 +58,7 @@ export function TaskFields({
       </EChamp>
       {stages.length > 0 ? (
         <EChamp libelle={T.stage} {...(stageHelp ? { aide: stageHelp } : {})} erreur={errors.stageId ?? null}>
-          <Selection
+          <ESelection
             libelle={T.stage}
             options={stages.map((stage) => ({ valeur: stage.id, libelle: stage.label }))}
             valeur={form.stageId}
@@ -76,7 +75,7 @@ export function TaskFields({
       )}
       <View style={styles.niveaux}>
         <EChamp libelle={T.importance} style={styles.niveau}>
-          <Selection
+          <ESelection
             libelle={T.importance}
             options={importanceOptions}
             valeur={form.importance}
@@ -85,7 +84,7 @@ export function TaskFields({
           />
         </EChamp>
         <EChamp libelle={T.urgency} style={styles.niveau}>
-          <Selection
+          <ESelection
             libelle={T.urgency}
             options={urgencyOptions}
             valeur={form.urgency}
