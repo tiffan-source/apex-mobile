@@ -185,6 +185,26 @@ describe('les passerelles', () => {
     });
   });
 
+  it('efface un objectif ou un pas : 204 sans corps ; introuvable rend son code', async () => {
+    const { received, transport } = server((request) =>
+      request.url.endsWith('/v1/tasks/inconnu')
+        ? json(404, { error: { code: 'TASK_NOT_FOUND', message: 'Task not found' } })
+        : new Response(null, { status: 204 }),
+    );
+    const gateway = new HttpObjectivesGateway(
+      createApexClient({ baseUrl: BASE, tokens: new FakeTokens(), fetch: transport }),
+    );
+    expect(await gateway.deleteObjective('o')).toEqual({ success: true, data: undefined });
+    expect(await gateway.deleteTask('p')).toEqual({ success: true, data: undefined });
+    const missing = await gateway.deleteTask('inconnu');
+    expect(!missing.success && missing.error.code).toBe('TASK_NOT_FOUND');
+    expect(received.map(({ method, url }) => `${method} ${url}`)).toEqual([
+      'DELETE /v1/objectives/o',
+      'DELETE /v1/tasks/p',
+      'DELETE /v1/tasks/inconnu',
+    ]);
+  });
+
   it('lit l’état du workflow d’Akari, et répond à une demande d’accord', async () => {
     const state = {
       objectiveId: 'o',

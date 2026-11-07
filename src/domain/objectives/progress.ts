@@ -23,7 +23,7 @@ export type TaskCount = {
 export const EMPTY_STAGE_DETAIL = "Aucun pas pour l'instant";
 
 /** Ce qu'une liste de pas compte. */
-export function taskProgress(tasks: readonly Task[]): StepProgress {
+export function taskProgress(tasks: readonly Pick<Task, 'done'>[]): StepProgress {
   const done = tasks.filter((task) => task.done).length;
   return { done, toDo: tasks.length - done };
 }

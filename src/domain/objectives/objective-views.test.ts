@@ -7,8 +7,10 @@ import {
   openStageId,
   stageName,
   stageOptions,
+  stageWithout,
   toObjectiveDetail,
 } from './objective-detail';
+import { objectiveErasure, stageErasure } from './erasure';
 import { EMPTY_STAGE_DETAIL, stageDetail } from './progress';
 
 /* Les cas du client web (`objective-view.mapper.spec.ts`), pour que les deux clients lisent l'arête pareil. */
@@ -344,5 +346,72 @@ describe('objectivesSummary', () => {
     expect(objectivesSummary(1, 0)).toBe('1 en marche');
     expect(objectivesSummary(0, 2)).toBe('2 accomplis');
     expect(objectivesSummary(0, 0)).toBe('');
+  });
+});
+
+describe('ce qu’un effacement emporte', () => {
+  const plan = () => {
+    const objectives = [
+      objective('o', 'Courir un semi-marathon'),
+      objective('e1', 'Programme', 'o', null, true),
+      objective('e2', 'Endurance', 'o'),
+      objective('s', 'Sorties longues', 'e2'),
+      objective('e3', '', 'o'),
+      objective('x', 'Apprendre le piano'),
+    ];
+    const tasks = [
+      pas('p1', 'e1', true),
+      pas('p2', 'e2', true),
+      pas('p3', 'e2', false),
+      pas('p4', 's', true),
+      pas('p5', 'o', false),
+      pas('p6', 'x', false),
+    ];
+    return { objectives, tasks };
+  };
+
+  it('une étape : ses pas (ceux de ses sous-objectifs compris), et ce qui reste sur l’arête', () => {
+    const { objectives, tasks } = plan();
+    expect(stageErasure('e2', objectives, tasks)).toEqual({
+      name: 'Endurance',
+      remaining: { done: 1, toDo: 1 },
+      stageCount: 3,
+      tasks: { done: 2, total: 3 },
+    });
+    expect(stageErasure('e3', objectives, tasks)?.name).toBe(UNTITLED_STAGE);
+  });
+
+  it('le pas dont la trace est à l’écran ne compte plus : il part déjà', () => {
+    const { objectives, tasks } = plan();
+    expect(stageErasure('e2', objectives, tasks, 'p3')?.tasks).toEqual({ done: 2, total: 2 });
+    expect(objectiveErasure('o', objectives, tasks, 'p5')?.tasks).toEqual({ done: 3, total: 4 });
+  });
+
+  it('un objectif : ses étapes, et tous ses pas', () => {
+    const { objectives, tasks } = plan();
+    expect(objectiveErasure('o', objectives, tasks)).toEqual({
+      title: 'Courir un semi-marathon',
+      stageCount: 3,
+      tasks: { done: 3, total: 5 },
+    });
+  });
+
+  it('rien pour ce qui n’est pas une étape, ou pas un objectif', () => {
+    const { objectives, tasks } = plan();
+    expect(stageErasure('o', objectives, tasks)).toBeUndefined();
+    expect(stageErasure('inconnu', objectives, tasks)).toBeUndefined();
+    expect(objectiveErasure('e1', objectives, tasks)).toBeUndefined();
+  });
+
+  it('l’étape ouverte ne compte plus le pas dont la trace est à l’écran, mais le garde à sa place', () => {
+    const { objectives, tasks } = plan();
+    const stage = toObjectiveDetail('o', objectives, tasks, NOW)?.stages.find((item) => item.id === 'e2');
+    if (!stage) throw new Error('étape attendue');
+    const leaving = stageWithout(stage, 'p3');
+    expect(leaving.progress).toEqual({ done: 2, toDo: 0 });
+    expect(leaving.detail).toBe(stageDetail({ done: 2, toDo: 0 }));
+    expect(leaving.tasks.map((item) => item.id)).toEqual(stage.tasks.map((item) => item.id));
+    expect(stageWithout(stage, null)).toBe(stage);
+    expect(stageWithout(stage, 'p6')).toBe(stage);
   });
 });

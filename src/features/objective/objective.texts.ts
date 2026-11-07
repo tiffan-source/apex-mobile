@@ -16,6 +16,8 @@ export const OBJECTIVE_TEXTS = typesetTexts({
   addTask: 'Ajouter un pas',
   proposeTasks: 'Proposer des pas avec Akari',
   editStage: "Modifier l'étape",
+  /** La sortie discrète, au pied de l'étape ouverte : elle demande une validation. */
+  eraseStage: "Effacer l'étape",
   firstStage: "Une arête se construit avec des étapes. Ajoute-en une, ou demande-moi de t'en proposer.",
   firstStagePlain: 'Une arête se construit avec des étapes.',
   proposeStages: 'Proposer des étapes',

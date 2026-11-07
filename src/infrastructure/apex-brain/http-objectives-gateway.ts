@@ -89,4 +89,18 @@ export class HttpObjectivesGateway implements ObjectivesGateway {
       () => undefined,
     );
   }
+
+  deleteObjective(objectiveId: string): Promise<Result<void>> {
+    return mapResult(
+      this.client.DELETE('/v1/objectives/{objectiveId}', { params: { path: { objectiveId } } }),
+      () => undefined,
+    );
+  }
+
+  deleteTask(taskId: string): Promise<Result<void>> {
+    return mapResult(
+      this.client.DELETE('/v1/tasks/{taskId}', { params: { path: { taskId } } }),
+      () => undefined,
+    );
+  }
 }

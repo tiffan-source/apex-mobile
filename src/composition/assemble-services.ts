@@ -4,6 +4,7 @@ import { AnnouncementCenter } from '@/application/announcements/announcement-cen
 import { createTemporaryIds } from '@/application/objectives/objectives-cache';
 import { ObjectiveCommands } from '@/application/objectives/objective-commands';
 import { ObjectivesLoader } from '@/application/objectives/objectives-loader';
+import { TaskTrace } from '@/application/objectives/task-trace';
 import { WriteQueue } from '@/application/objectives/write-queue';
 import type { AssistantGateway } from '@/application/ports/assistant-gateway';
 import type { AccessTokenProvider, AuthGateway } from '@/application/ports/auth-gateway';
@@ -60,6 +61,7 @@ export function assembleServices(adapters: Adapters, queryClient: QueryClient): 
     onObjectivesChanged: rereadObjectives,
   });
   const loader = new ObjectivesLoader({ gateway: gateways.objectives, writes, cache });
+  const trace = new TaskTrace((taskId) => void commands.deleteTask(taskId));
   const akariWrites = new AkariWritesWatcher({
     assistant: gateways.assistant,
     onObjectivesChanged: rereadObjectives,
@@ -71,13 +73,14 @@ export function assembleServices(adapters: Adapters, queryClient: QueryClient): 
     akariWrites.stop();
     writes.close();
     commands.forget();
+    trace.clear();
     queryClient.clear();
     announcements.acknowledge();
   });
 
   return {
     session,
-    objectives: { loader, commands },
+    objectives: { loader, commands, trace },
     assistant: gateways.assistant,
     akariWrites,
     announcements,

@@ -5,6 +5,7 @@ import { typesetTexts } from '../shared/typography';
  * phrases courtes, jamais « erreur », « échec », « succès », « supprimer » ni point d'exclamation.
  * Les réussites sont annoncées aux lecteurs d'écran ; ce qui n'a pas marché est signalé dans l'écran, avec ce
  * qu'il faut faire ensuite. « Pas » ouvre rarement une phrase : « Pas ajouté. » se lirait « non ajouté ».
+ * On efface, on ne supprime pas ; un pas effacé ne s'annonce pas : sa trace le dit déjà.
  */
 
 /** Les annonces discrètes des réussites. */
@@ -16,6 +17,8 @@ export const SUCCESS_ANNOUNCEMENTS = typesetTexts({
   taskSaved: 'Ce pas est à jour.',
   taskDone: 'Un pas de plus.',
   taskUndone: 'Ce pas est de nouveau à faire.',
+  stageErased: 'Étape effacée.',
+  objectiveErased: 'Objectif effacé.',
 } as const);
 
 /** Les signalements : ce qui n'a pas marché, et quoi faire. */
@@ -26,6 +29,11 @@ export const FAILURE_REPORTS = typesetTexts({
   addTask: "Je n'ai pas pu enregistrer ce pas. Vérifie ta connexion, puis réessaie.",
   editTask: "Je n'ai pas pu enregistrer ce pas. Vérifie ta connexion, puis réessaie.",
   toggleTask: "Je n'ai pas pu enregistrer ce pas. Vérifie ta connexion, puis réessaie.",
+  eraseTask: "Je n'ai pas pu effacer ce pas : il est revenu à sa place. Vérifie ta connexion, puis réessaie.",
+  eraseStage:
+    "Je n'ai pas pu effacer cette étape : elle est revenue à sa place. Vérifie ta connexion, puis réessaie.",
+  eraseObjective:
+    "Je n'ai pas pu effacer cet objectif : il est revenu parmi tes objectifs. Vérifie ta connexion, puis réessaie.",
   loadObjectives: "Je n'ai pas pu charger tes objectifs. Vérifie ta connexion, puis réessaie.",
   objectiveNotFound: 'Je ne retrouve plus cet objectif. Recharge tes objectifs, puis réessaie.',
   taskNotFound: 'Je ne retrouve plus ce pas. Recharge tes objectifs, puis réessaie.',

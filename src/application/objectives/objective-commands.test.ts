@@ -477,3 +477,210 @@ describe('la voix des annonces et des signalements', () => {
     expect(t.announcer.said.at(-1)?.text).toBe(FAILURE_REPORTS.objectiveNotFound);
   });
 });
+
+describe('effacer', () => {
+  const ids = (items: readonly { readonly id: string }[]) => items.map((item) => item.id);
+
+  function seedPlan(gateway: InMemoryObjectivesGateway) {
+    seedSemi(gateway);
+    gateway.seedObjective({ id: 'mental', title: 'Mental', parentId: 'semi' });
+    gateway.seedTask({ id: 'p3', title: 'Visualiser la course', objectiveId: 'mental' });
+  }
+
+  it('un pas quitte l’écran tout de suite, puis la base ; les objectifs sont relus, sans rien annoncer', async () => {
+    const t = setup(seedPlan);
+    await t.load();
+    t.gateway.hold();
+    const erased = t.commands.deleteTask('p1');
+    expect(ids(t.snapshot().tasks)).toEqual(['p2', 'p3']);
+    expect(ids(t.gateway.tasks)).toContain('p1');
+    await t.gateway.release();
+    await erased;
+    expect(ids(t.gateway.tasks)).toEqual(['p2', 'p3']);
+    expect(t.onObjectivesChanged).toHaveBeenCalledTimes(1);
+    expect(t.announcer.said).toEqual([]);
+  });
+
+  it('un pas qui n’est pas effacé revient à sa place, et le dit', async () => {
+    const t = setup(seedPlan);
+    await t.load();
+    t.gateway.failNext('deleteTask', 'NETWORK_UNREACHABLE');
+    await t.commands.deleteTask('p1');
+    expect(ids(t.snapshot().tasks)).toEqual(['p1', 'p2', 'p3']);
+    expect(t.announcements.report$.get()).toBe(FAILURE_REPORTS.eraseTask);
+    expect(t.onObjectivesChanged).not.toHaveBeenCalled();
+  });
+
+  it('un pas déjà effacé ailleurs (introuvable) l’est : rien à signaler', async () => {
+    const t = setup(seedPlan);
+    await t.load();
+    t.gateway.tasks = t.gateway.tasks.filter((task) => task.id !== 'p1');
+    await t.commands.deleteTask('p1');
+    expect(ids(t.snapshot().tasks)).toEqual(['p2', 'p3']);
+    expect(t.announcements.report$.get()).toBeNull();
+  });
+
+  it('un pas qui n’est plus là n’est pas effacé deux fois', async () => {
+    const t = setup(seedPlan);
+    await t.load();
+    await Promise.all([t.commands.deleteTask('p1'), t.commands.deleteTask('p1')]);
+    await t.commands.deleteTask('inconnu');
+    expect(t.gateway.calls.filter((call) => call === 'deleteTask')).toHaveLength(1);
+  });
+
+  it('cocher puis effacer hors connexion : le pas revient tel que le serveur l’a, non coché', async () => {
+    const t = setup(seedPlan);
+    await t.load();
+    t.gateway.failNext('setTaskDone', 'NETWORK_UNREACHABLE');
+    t.gateway.failNext('deleteTask', 'NETWORK_UNREACHABLE');
+    await Promise.all([t.commands.setTaskDone('p1', true), t.commands.deleteTask('p1')]);
+    expect(t.snapshot().tasks[0]).toMatchObject({ id: 'p1', done: false });
+    expect(t.announcements.report$.get()).toBe(FAILURE_REPORTS.eraseTask);
+  });
+
+  it('un pas effacé pendant sa création part avec son id définitif', async () => {
+    const t = setup(seedPlan);
+    await t.load();
+    const added = t.commands.addTask('endurance', { title: 'Étirements', importance: 3, urgency: 2 });
+    const temporaryId = t.snapshot().tasks.at(-1)?.id as string;
+    const erased = t.commands.deleteTask(temporaryId);
+    await Promise.all([added, erased]);
+    expect(t.gateway.calls.filter((call) => call !== 'list')).toEqual(['addTask', 'deleteTask']);
+    expect(t.gateway.tasks.map((task) => task.title)).not.toContain('Étirements');
+    expect(t.snapshot().tasks.map((task) => task.title)).not.toContain('Étirements');
+  });
+
+  it('un pas dont la création n’a pas abouti ne part pas en requête, et ne revient pas', async () => {
+    const t = setup(seedPlan);
+    await t.load();
+    t.gateway.failNext('addTask');
+    const added = t.commands.addTask('endurance', { title: 'Étirements', importance: 3, urgency: 2 });
+    const temporaryId = t.snapshot().tasks.at(-1)?.id as string;
+    await Promise.all([added, t.commands.deleteTask(temporaryId)]);
+    expect(t.gateway.calls).not.toContain('deleteTask');
+    expect(t.snapshot().tasks.map((task) => task.title)).not.toContain('Étirements');
+    expect(t.announcements.report$.get()).toBe(FAILURE_REPORTS.addTask);
+  });
+
+  it('une étape part avec ses pas, s’annonce, et les objectifs sont relus', async () => {
+    const t = setup(seedPlan);
+    await t.load();
+    t.gateway.hold();
+    const erased = t.commands.deleteObjective('endurance');
+    expect(ids(t.snapshot().objectives)).toEqual(['semi', 'mental']);
+    expect(ids(t.snapshot().tasks)).toEqual(['p3']);
+    await t.gateway.release();
+    await erased;
+    expect(ids(t.gateway.objectives)).toEqual(['semi', 'mental']);
+    expect(ids(t.gateway.tasks)).toEqual(['p3']);
+    expect(t.announcer.said.map((item) => item.text)).toEqual([SUCCESS_ANNOUNCEMENTS.stageErased]);
+    expect(t.onObjectivesChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it('une étape qui n’est pas effacée revient à sa place, avec ses pas', async () => {
+    const t = setup(seedPlan);
+    await t.load();
+    t.gateway.failNext('deleteObjective', 'UNKNOWN_ERROR');
+    await t.commands.deleteObjective('endurance');
+    expect(ids(t.snapshot().objectives)).toEqual(['semi', 'endurance', 'mental']);
+    expect(ids(t.snapshot().tasks)).toEqual(['p1', 'p2', 'p3']);
+    expect(t.announcements.report$.get()).toBe(FAILURE_REPORTS.eraseStage);
+    expect(t.onObjectivesChanged).not.toHaveBeenCalled();
+  });
+
+  it('un objectif part avec ses étapes et leurs pas, s’annonce, sans relire', async () => {
+    const t = setup((gateway) => {
+      seedPlan(gateway);
+      gateway.seedObjective({ id: 'piano', title: 'Apprendre le piano' });
+    });
+    await t.load();
+    await t.commands.deleteObjective('semi');
+    expect(ids(t.snapshot().objectives)).toEqual(['piano']);
+    expect(t.snapshot().tasks).toEqual([]);
+    expect(ids(t.gateway.objectives)).toEqual(['piano']);
+    expect(t.gateway.tasks).toEqual([]);
+    expect(t.announcer.said.map((item) => item.text)).toEqual([SUCCESS_ANNOUNCEMENTS.objectiveErased]);
+    expect(t.onObjectivesChanged).not.toHaveBeenCalled();
+  });
+
+  it('un objectif qui n’est pas effacé revient parmi tes objectifs', async () => {
+    const t = setup((gateway) => {
+      seedPlan(gateway);
+      gateway.seedObjective({ id: 'piano', title: 'Apprendre le piano' });
+    });
+    await t.load();
+    t.gateway.failNext('deleteObjective', 'NETWORK_UNREACHABLE');
+    await t.commands.deleteObjective('semi');
+    expect(ids(t.snapshot().objectives)).toEqual(['semi', 'endurance', 'mental', 'piano']);
+    expect(ids(t.snapshot().tasks)).toEqual(['p1', 'p2', 'p3']);
+    expect(t.announcements.report$.get()).toBe(FAILURE_REPORTS.eraseObjective);
+  });
+
+  it('un objectif déjà effacé ailleurs (introuvable) quitte l’écran sans rien signaler', async () => {
+    const t = setup(seedPlan);
+    await t.load();
+    t.gateway.objectives = [];
+    t.gateway.tasks = [];
+    await t.commands.deleteObjective('semi');
+    expect(t.snapshot().objectives).toEqual([]);
+    expect(t.announcements.report$.get()).toBeNull();
+  });
+
+  it('une étape renommée puis effacée, les deux refusés : elle revient avec le nom que le serveur a', async () => {
+    const t = setup(seedPlan);
+    await t.load();
+    t.gateway.failNext('editObjective');
+    t.gateway.failNext('deleteObjective');
+    await Promise.all([
+      t.commands.editObjective('endurance', { title: 'Fond' }),
+      t.commands.deleteObjective('endurance'),
+    ]);
+    expect(t.snapshot().objectives.find((objective) => objective.id === 'endurance')?.title).toBe(
+      'Endurance',
+    );
+  });
+
+  it('un pas ajouté à une étape effacée juste après part avec elle', async () => {
+    const t = setup(seedPlan);
+    await t.load();
+    await Promise.all([
+      t.commands.addTask('endurance', { title: 'Fractionné', importance: 3, urgency: 2 }),
+      t.commands.deleteObjective('endurance'),
+    ]);
+    expect(t.gateway.tasks.map((task) => task.title)).toEqual(['Visualiser la course']);
+    expect(t.snapshot().tasks.map((task) => task.title)).toEqual(['Visualiser la course']);
+  });
+
+  it('un rechargement pendant l’effacement ne ramène pas ce qui part', async () => {
+    const t = setup(seedPlan);
+    await t.load();
+    t.gateway.hold();
+    const reloading = t.load();
+    const erased = t.commands.deleteObjective('endurance');
+    await t.gateway.release();
+    await Promise.all([reloading, erased]);
+    expect(ids(t.snapshot().objectives)).toEqual(['semi', 'mental']);
+    expect(ids(t.snapshot().tasks)).toEqual(['p3']);
+  });
+
+  it('un pas dont l’étape est effacée pendant qu’il partait ne revient pas sans elle', async () => {
+    const t = setup(seedPlan);
+    await t.load();
+    t.gateway.failNext('deleteTask', 'NETWORK_UNREACHABLE');
+    await Promise.all([t.commands.deleteTask('p1'), t.commands.deleteObjective('endurance')]);
+    expect(t.snapshot().tasks.map((task) => task.id)).toEqual(['p3']);
+    expect(ids(t.gateway.objectives)).toEqual(['semi', 'mental']);
+  });
+
+  it('chaque phrase de l’effacement parle comme Empreinte', () => {
+    for (const text of [
+      SUCCESS_ANNOUNCEMENTS.stageErased,
+      SUCCESS_ANNOUNCEMENTS.objectiveErased,
+      FAILURE_REPORTS.eraseTask,
+      FAILURE_REPORTS.eraseStage,
+      FAILURE_REPORTS.eraseObjective,
+    ]) {
+      expect(voiceIssues(text)).toEqual([]);
+    }
+  });
+});

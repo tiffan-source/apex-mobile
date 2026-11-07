@@ -4,17 +4,22 @@ import type { Objective, Task } from '@/domain/objectives/objective';
 import {
   addObjective,
   addTask,
+  eraseObjective,
+  eraseTask,
   findObjective,
   findTask,
   isTemporaryId,
   removeObjective,
   removeTask,
+  restoreErased,
   swapObjectiveId,
   swapTaskId,
   updateObjective,
   updateTask,
+  type Removed,
+  type RemovedItems,
 } from '@/domain/objectives/snapshot';
-import { CLIENT_ERRORS, UNKNOWN_ERROR, fail, type Failure, type Result } from '@/domain/shared/result';
+import { CLIENT_ERRORS, UNKNOWN_ERROR, fail, ok, type Failure, type Result } from '@/domain/shared/result';
 import type { AnnouncementCenter } from '../announcements/announcement-center';
 import type { NewTask, ObjectivesGateway } from '../ports/objectives-gateway';
 import type { ObjectivesCache, TemporaryIds } from './objectives-cache';
@@ -32,8 +37,10 @@ import { SessionClosedError, type WriteQueue } from './write-queue';
  *   geste en route sur lui est réglé : jamais la valeur d'un geste refusé, ni ne défait un geste plus récent.
  * - Un geste dont la session a pris fin ne se réconcilie pas et ne dit rien : la personne suivante ne voit
  *   rien de la précédente.
- * - Fait ou non fait, pour une étape ou un objectif, c'est le serveur qui le dit : après un pas coché, ajouté
- *   ou modifié, les objectifs sont relus (`onObjectivesChanged`).
+ * - Fait ou non fait, pour une étape ou un objectif, c'est le serveur qui le dit : après un pas coché, ajouté,
+ *   modifié ou effacé, ou une étape effacée, les objectifs sont relus (`onObjectivesChanged`).
+ * - Effacer retire tout de suite l'élément de l'écran, avec ce qui en dépend ; un effacement refusé remet tout à
+ *   sa place, tel que le serveur l'a. Un élément déjà effacé côté serveur (introuvable) l'est : rien à dire.
  */
 
 export type ObjectiveCommandsDeps = {
@@ -56,6 +63,10 @@ type Sent<T> = Result<T> | typeof SKIPPED;
 
 const accepted = <T>(sent: Sent<T>): sent is { readonly success: true; readonly data: T } =>
   sent !== SKIPPED && sent.success;
+
+/** Un élément que le serveur ne trouve plus (`notFoundCode`) est déjà effacé : l'effacement a abouti. */
+const alreadyErased = (result: Result<void>, notFoundCode: string): Result<void> =>
+  !result.success && result.error.code === notFoundCode ? ok(undefined) : result;
 
 export class ObjectiveCommands {
   /** Ce que le serveur a accepté des pas et des objectifs que des gestes en route touchent. */
@@ -225,6 +236,69 @@ export class ObjectiveCommands {
     this.reread(sent);
   }
 
+  /**
+   * Efface un pas, pour de bon : il part de l'écran tout de suite, puis de la base. Sa trace (`TaskTrace`) a déjà dit
+   * qu'il partait : la réussite ne s'annonce pas. Un pas qui n'est plus là (déjà effacé, parti avec son étape) est
+   * ignoré : l'effacement peut être demandé plusieurs fois pour le même pas.
+   */
+  async deleteTask(taskId: string): Promise<void> {
+    const { cache, gateway, writes } = this.deps;
+    const current = cache.read();
+    const id = writes.resolve(taskId);
+    if (!current || !findTask(current, id)) return;
+    const { removed } = eraseTask(current, id);
+    this.beginErasing(removed);
+    cache.update((snapshot) => eraseTask(snapshot, id).snapshot);
+
+    const sent = await this.write(
+      async () => {
+        const target = writes.resolve(taskId);
+        // Sa création n'a pas abouti (déjà signalé) : il n'est pas en base.
+        if (isTemporaryId(target)) return SKIPPED;
+        return this.request(async () => alreadyErased(await gateway.deleteTask(target), 'TASK_NOT_FOUND'));
+      },
+      (result) => this.settleErased(removed, result !== SKIPPED && !result.success),
+    );
+    this.tell(sent, 'eraseTask');
+    // Sans ce pas, son étape peut être faite : le serveur le dira à la prochaine lecture.
+    this.reread(sent);
+  }
+
+  /**
+   * Efface un objectif ou une étape, avec tout ce qui en dépend : ses étapes, leurs pas et, pour un objectif, sa
+   * conversation avec Akari (le serveur l'efface avec lui). Tout part de l'écran tout de suite, puis de la base.
+   * L'écran a déjà demandé la confirmation.
+   */
+  async deleteObjective(objectiveId: string): Promise<void> {
+    const { cache, gateway, writes } = this.deps;
+    const current = cache.read();
+    const target = findObjective(current, writes.resolve(objectiveId));
+    if (!current || !target) return;
+    const isStage = target.parentId !== null;
+    const { removed } = eraseObjective(current, target.id);
+    this.beginErasing(removed);
+    cache.update((snapshot) => eraseObjective(snapshot, target.id).snapshot);
+
+    const sent = await this.write(
+      async () => {
+        const id = writes.resolve(objectiveId);
+        // Sa création n'a pas abouti (déjà signalé) : il n'est pas en base.
+        if (isTemporaryId(id)) return SKIPPED;
+        return this.request(async () =>
+          alreadyErased(await gateway.deleteObjective(id), 'OBJECTIVE_NOT_FOUND'),
+        );
+      },
+      (result) => this.settleErased(removed, result !== SKIPPED && !result.success),
+    );
+    this.tell(
+      sent,
+      isStage ? 'eraseStage' : 'eraseObjective',
+      isStage ? SUCCESS_ANNOUNCEMENTS.stageErased : SUCCESS_ANNOUNCEMENTS.objectiveErased,
+    );
+    // Sans cette étape, son objectif peut être fait : le serveur le dira à la prochaine lecture.
+    if (isStage) this.reread(sent);
+  }
+
   /** L'id définitif d'un élément s'il est connu, sinon l'id tel quel. */
   currentId(id: string): string {
     return this.deps.writes.resolve(id);
@@ -272,6 +346,37 @@ export class ObjectiveCommands {
     );
   }
 
+  /** Un effacement commence : ce qu'il retire est un geste en route sur chacun de ces éléments. */
+  private beginErasing(removed: RemovedItems): void {
+    for (const { item } of removed.objectives) this.objectives.begin(item.id, item);
+    for (const { item } of removed.tasks) this.tasks.begin(item.id, item);
+  }
+
+  /**
+   * Un effacement est réglé. Accepté (ou sans objet), ce qu'il a retiré est oublié. Refusé, tout revient à sa place,
+   * tel que le serveur l'a (`PendingChanges` : un pas coché juste avant, refusé lui aussi, revient décoché), sauf ce
+   * dont la création n'a pas abouti entre-temps.
+   */
+  private settleErased(removed: RemovedItems, refused: boolean): void {
+    const { cache, writes } = this.deps;
+    const objectives: Removed<Objective>[] = [];
+    const tasks: Removed<Task>[] = [];
+    for (const { index, item } of removed.objectives) {
+      const id = writes.resolve(item.id);
+      const confirmed = this.objectives.settle(id, refused ? null : (objective) => objective) ?? item;
+      if (!refused || isTemporaryId(id)) continue;
+      const parentId = item.parentId === null ? null : writes.resolve(item.parentId);
+      objectives.push({ index, item: { ...confirmed, id, parentId } });
+    }
+    for (const { index, item } of removed.tasks) {
+      const id = writes.resolve(item.id);
+      const confirmed = this.tasks.settle(id, refused ? null : (task) => task) ?? item;
+      if (!refused || isTemporaryId(id)) continue;
+      tasks.push({ index, item: { ...confirmed, id, objectiveId: writes.resolve(confirmed.objectiveId) } });
+    }
+    if (refused) cache.update((snapshot) => restoreErased(snapshot, { objectives, tasks }));
+  }
+
   /** Une création a reçu son id définitif : les gestes qui la suivent dans la file le retrouvent. */
   private link(temporaryId: string, realId: string): void {
     this.deps.writes.link(temporaryId, realId);
@@ -311,11 +416,14 @@ export class ObjectiveCommands {
     }
   }
 
-  /** La réussite annoncée, ou ce qui n'a pas abouti signalé ; rien pour une écriture sautée ou orpheline. */
-  private tell<T>(sent: Sent<T> | typeof CLOSED, action: FailedAction, success: string): void {
+  /**
+   * La réussite annoncée (s'il y a quelque chose à dire), ou ce qui n'a pas abouti signalé ; rien pour une écriture
+   * sautée ou orpheline.
+   */
+  private tell<T>(sent: Sent<T> | typeof CLOSED, action: FailedAction, success?: string): void {
     if (sent === CLOSED || sent === SKIPPED) return;
-    if (sent.success) this.deps.announcements.announce(success);
-    else this.report(action, sent.error);
+    if (!sent.success) this.report(action, sent.error);
+    else if (success) this.deps.announcements.announce(success);
   }
 
   /** Une écriture acceptée a pu changer ce qui est fait : le serveur le dira à la prochaine lecture. */

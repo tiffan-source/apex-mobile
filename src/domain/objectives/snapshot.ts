@@ -1,9 +1,11 @@
 import type { Levels, Objective, ObjectivesSnapshot, Task } from './objective';
+import { subtreeIds } from './tree';
 
 /*
  * Les changements de la copie locale, sans effet de bord : les gestes optimistes (un objectif, une étape ou
- * un pas créé avec un id temporaire), leur réconciliation avec l'id définitif, et le chargement qui garde ce
- * qui est encore en cours d'enregistrement. Repris des stores du client web (`map-optimistique-id.ts`).
+ * un pas créé avec un id temporaire, ou effacé), leur réconciliation avec l'id définitif, et le chargement qui
+ * garde ce qui est encore en cours d'enregistrement. Repris des stores du client web (`map-optimistique-id.ts`,
+ * `removed-items.ts`).
  */
 
 /** Le préfixe des identifiants optimistes. */
@@ -130,6 +132,91 @@ export function updateTask(
   change: (task: Task) => Task,
 ): ObjectivesSnapshot {
   return { ...snapshot, tasks: snapshot.tasks.map((task) => (task.id === taskId ? change(task) : task)) };
+}
+
+/** Un élément retiré de la copie, avec la place qu'il y occupait. */
+export type Removed<T> = {
+  readonly index: number;
+  readonly item: T;
+};
+
+/** Ce qu'un effacement a retiré de la copie : de quoi tout remettre à sa place s'il n'aboutit pas. */
+export type RemovedItems = {
+  readonly objectives: readonly Removed<Objective>[];
+  readonly tasks: readonly Removed<Task>[];
+};
+
+/** La copie après un effacement, et ce qu'il a retiré. */
+export type Erased = {
+  readonly snapshot: ObjectivesSnapshot;
+  readonly removed: RemovedItems;
+};
+
+/** Sépare d'une liste les éléments à retirer, en notant leur place. */
+function partition<T>(
+  list: readonly T[],
+  remove: (item: T) => boolean,
+): { kept: T[]; removed: Removed<T>[] } {
+  const kept: T[] = [];
+  const removed: Removed<T>[] = [];
+  list.forEach((item, index) => (remove(item) ? removed.push({ index, item }) : kept.push(item)));
+  return { kept, removed };
+}
+
+/**
+ * Efface de la copie un objectif (ou une étape), ses descendants et tous leurs pas, comme Apex Brain. Un id inconnu
+ * ne retire rien.
+ */
+export function eraseObjective(snapshot: ObjectivesSnapshot, objectiveId: string): Erased {
+  const ids = snapshot.objectives.some((objective) => objective.id === objectiveId)
+    ? subtreeIds(objectiveId, snapshot.objectives)
+    : new Set<string>();
+  const objectives = partition(snapshot.objectives, (objective) => ids.has(objective.id));
+  const tasks = partition(snapshot.tasks, (task) => ids.has(task.objectiveId));
+  return {
+    snapshot: { ...snapshot, objectives: objectives.kept, tasks: tasks.kept },
+    removed: { objectives: objectives.removed, tasks: tasks.removed },
+  };
+}
+
+/** Efface un pas de la copie. Un id inconnu ne retire rien. */
+export function eraseTask(snapshot: ObjectivesSnapshot, taskId: string): Erased {
+  const tasks = partition(snapshot.tasks, (task) => task.id === taskId);
+  return { snapshot: { ...snapshot, tasks: tasks.kept }, removed: { objectives: [], tasks: tasks.removed } };
+}
+
+/** Remet des éléments à la place qu'ils occupaient, sauf ceux qui y sont déjà. */
+function insertAtPlace<T extends { readonly id: string }>(
+  list: readonly T[],
+  removed: readonly Removed<T>[],
+): T[] {
+  const result = [...list];
+  for (const { index, item } of [...removed].sort((a, b) => a.index - b.index)) {
+    if (result.some((current) => current.id === item.id)) continue;
+    result.splice(Math.min(index, result.length), 0, item);
+  }
+  return result;
+}
+
+/**
+ * Remet à leur place des éléments effacés, quand l'effacement n'aboutit pas : chacun revient où il était, il ne
+ * saute pas en bas de l'écran. Ce qui est déjà là (une relecture l'a rendu) reste tel quel. Ce qui a perdu son parent
+ * entre-temps (son objectif, son étape, effacés à leur tour) ne revient pas : il n'aurait plus où aller.
+ */
+export function restoreErased(snapshot: ObjectivesSnapshot, removed: RemovedItems): ObjectivesSnapshot {
+  const removedIds = new Set(removed.objectives.map(({ item }) => item.id));
+  const present = new Set(snapshot.objectives.map((objective) => objective.id));
+  const orphaned = removed.objectives.some(
+    ({ item }) => item.parentId !== null && !removedIds.has(item.parentId) && !present.has(item.parentId),
+  );
+  if (orphaned) return snapshot;
+  const objectives = insertAtPlace(snapshot.objectives, removed.objectives);
+  const ids = new Set(objectives.map((objective) => objective.id));
+  const tasks = insertAtPlace(
+    snapshot.tasks,
+    removed.tasks.filter(({ item }) => ids.has(item.objectiveId)),
+  );
+  return { ...snapshot, objectives, tasks };
 }
 
 export function setTaskDone(snapshot: ObjectivesSnapshot, taskId: string, done: boolean): ObjectivesSnapshot {

@@ -1,5 +1,6 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { EChamp, EFeuille, ESaisie } from '@empreinte-studio/react-native';
+import { EBouton, EChamp, EFeuille, ESaisie } from '@empreinte-studio/react-native';
 import { EChampDate } from '@empreinte-studio/react-native/champ-date';
 import {
   hasErrors,
@@ -9,8 +10,10 @@ import {
   type ObjectiveForm,
 } from '@/domain/objectives/forms';
 import type { Objective } from '@/domain/objectives/objective';
+import { isTemporaryId } from '@/domain/objectives/snapshot';
 import { formatLongDate, startOfDay } from '@/domain/shared/dates';
 import { useObjectiveCommands, useObjectiveItem, useObjectives } from '@/state/objectives';
+import { routes } from '../shell/routes';
 import { GoneSheet, LoadingSheet, SheetActions, useCloseSheet } from './sheet-frame';
 import { SHEETS_TEXTS } from './sheets.texts';
 
@@ -19,7 +22,8 @@ const T = SHEETS_TEXTS.editObjective;
 /**
  * La feuille « Modifier l'objectif » : son nom, quelques mots, son pourquoi et son horizon. La description et
  * le pourquoi s'effacent en vidant leur champ ; l'horizon se retire (Apex Brain le permet). L'enregistrement est
- * optimiste : la feuille se ferme tout de suite, sans rien envoyer si rien n'a changé.
+ * optimiste : la feuille se ferme tout de suite, sans rien envoyer si rien n'a changé. Son pied garde une sortie
+ * discrète, « Effacer l'objectif », qui passe la main à la feuille de confirmation.
  */
 export function EditObjectiveSheet({ objectiveId }: { readonly objectiveId: string }) {
   const { loaded } = useObjectives();
@@ -30,6 +34,7 @@ export function EditObjectiveSheet({ objectiveId }: { readonly objectiveId: stri
 }
 
 function EditObjectiveForm({ objective }: { readonly objective: Objective }) {
+  const router = useRouter();
   const close = useCloseSheet();
   const commands = useObjectiveCommands();
   // La feuille part de l'objectif tel qu'il était à son ouverture.
@@ -54,6 +59,24 @@ function EditObjectiveForm({ objective }: { readonly objective: Objective }) {
       actions={
         <SheetActions label={SHEETS_TEXTS.save} onConfirm={save} onCancel={close} testID="enregistrer" />
       }
+      {...(isTemporaryId(initial.id)
+        ? {}
+        : {
+            pied: (
+              <>
+                {T.exitQuestion}
+                {/* La confirmation prend la place de cette feuille : la garder ramène à l'arête. */}
+                <EBouton
+                  variante="nu"
+                  petit
+                  doux
+                  onPress={() => router.replace(routes.eraseObjective(initial.id))}
+                >
+                  {T.erase}
+                </EBouton>
+              </>
+            ),
+          })}
       testID="feuille-objectif"
     >
       <EChamp libelle={T.name} erreur={errors.title ?? null}>

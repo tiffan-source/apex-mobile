@@ -1,6 +1,6 @@
 import type { CreateObjectiveInput, EditObjectiveInput, EditTaskInput } from '@/domain/objectives/forms';
 import type { Objective, Task } from '@/domain/objectives/objective';
-import { tasksInSubtree } from '@/domain/objectives/tree';
+import { subtreeIds, tasksInSubtree } from '@/domain/objectives/tree';
 import { fail, ok, type Result } from '@/domain/shared/result';
 import type {
   Created,
@@ -12,8 +12,8 @@ import type {
 /**
  * Apex Brain en mémoire, pour les tests : les mêmes règles que l'API (tri par création, « introuvable » pour un
  * id inconnu, déplacement d'un pas par `objectiveId`, `done` d'un objectif ou d'une étape : au moins un pas, et
- * tous faits), des pannes à la demande et des réponses retenues pour jouer les courses (un geste pendant un
- * chargement).
+ * tous faits, un objectif effacé avec tout ce qui en dépend), des pannes à la demande et des réponses retenues
+ * pour jouer les courses (un geste pendant un chargement).
  */
 export class InMemoryObjectivesGateway implements ObjectivesGateway {
   objectives: Objective[] = [];
@@ -134,6 +134,26 @@ export class InMemoryObjectivesGateway implements ObjectivesGateway {
       const old = this.tasks[index];
       if (!old) return notFound('TASK_NOT_FOUND');
       this.tasks[index] = { ...old, done };
+      return ok(undefined);
+    });
+  }
+
+  /** Comme Apex Brain : l'objectif (ou l'étape) part avec ses descendants et tous leurs pas. */
+  async deleteObjective(objectiveId: string): Promise<Result<void>> {
+    return this.respond('deleteObjective', () => {
+      if (!this.objectives.some((objective) => objective.id === objectiveId))
+        return notFound('OBJECTIVE_NOT_FOUND');
+      const removed = subtreeIds(objectiveId, this.objectives);
+      this.objectives = this.objectives.filter((objective) => !removed.has(objective.id));
+      this.tasks = this.tasks.filter((task) => !removed.has(task.objectiveId));
+      return ok(undefined);
+    });
+  }
+
+  async deleteTask(taskId: string): Promise<Result<void>> {
+    return this.respond('deleteTask', () => {
+      if (!this.tasks.some((task) => task.id === taskId)) return notFound('TASK_NOT_FOUND');
+      this.tasks = this.tasks.filter((task) => task.id !== taskId);
       return ok(undefined);
     });
   }
