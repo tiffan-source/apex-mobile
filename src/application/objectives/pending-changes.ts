@@ -31,6 +31,17 @@ export class PendingChanges<T> {
     return item.confirmed;
   }
 
+  /**
+   * Le serveur dit ce qu'il a de l'élément (une création qui vient d'aboutir) : c'est le nouveau point de départ
+   * des gestes en route sur lui. Rend false si aucun geste n'est en route : l'écran peut le montrer tel quel.
+   */
+  confirm(key: string, value: T): boolean {
+    const item = this.items.get(key);
+    if (!item) return false;
+    item.confirmed = value;
+    return true;
+  }
+
   /** L'élément a reçu son id définitif : ses gestes en route le suivent. */
   rekey(from: string, to: string): void {
     const item = this.items.get(from);

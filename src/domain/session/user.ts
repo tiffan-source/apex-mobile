@@ -1,5 +1,5 @@
 /*
- * La personne connectée, telle qu'Apex Brain la décrit (`GET /v1/auth/me`) : son id, son nom d'affichage
+ * La personne connectée, telle qu'Apex Brain la décrit (`GET /v2/auth/me`) : son id, son nom d'affichage
  * (à défaut son adresse e-mail) et son adresse.
  */
 

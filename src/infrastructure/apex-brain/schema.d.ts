@@ -36,6 +36,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AuthController_register_v2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/login": {
         parameters: {
             query?: never;
@@ -46,6 +62,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["AuthController_login_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AuthController_login_v2"];
         delete?: never;
         options?: never;
         head?: never;
@@ -68,6 +100,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AuthController_refresh_v2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/logout": {
         parameters: {
             query?: never;
@@ -78,6 +126,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["AuthController_logout_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AuthController_logout_v2"];
         delete?: never;
         options?: never;
         head?: never;
@@ -100,6 +164,300 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AuthController_me_v2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/objectives": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Définir un nouvel objectif principal */
+        post: operations["createObjective"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/objectives/{objectiveId}/sub-objectives": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ajouter une étape sous un objectif ou une étape */
+        post: operations["addSubObjective"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/objectives/{objectiveId}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ajouter un pas à un objectif ou à une étape */
+        post: operations["addTaskToObjective"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/objectives/{objectiveId}/rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Donner un nouveau titre à un objectif ou à une étape */
+        patch: operations["renameObjective"];
+        trace?: never;
+    };
+    "/v2/objectives/{objectiveId}/clarify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Préciser ce qu'est un objectif (ou une étape) et pourquoi on le poursuit
+         * @description Au moins `description` ou `why`. Un champ absent reste inchangé ; `""` le vide.
+         */
+        patch: operations["clarifyObjective"];
+        trace?: never;
+    };
+    "/v2/objectives/{objectiveId}/set-deadline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Fixer l'échéance d'un objectif ou d'une étape */
+        patch: operations["setObjectiveDeadline"];
+        trace?: never;
+    };
+    "/v2/objectives/{objectiveId}/remove-deadline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Retirer l'échéance d'un objectif ou d'une étape */
+        patch: operations["removeObjectiveDeadline"];
+        trace?: never;
+    };
+    "/v2/objectives/{objectiveId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Supprimer un objectif ou une étape, avec tout ce qui en dépend */
+        delete: operations["deleteObjective"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/tasks/today-focus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Les cinq pas sur lesquels se concentrer aujourd’hui */
+        get: operations["whatIsTodayFocus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/tasks/{taskId}/rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Donner un nouveau titre à un pas */
+        patch: operations["renameTask"];
+        trace?: never;
+    };
+    "/v2/tasks/{taskId}/reprioritize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Revoir l'importance et l'urgence d'un pas */
+        patch: operations["reprioritizeTask"];
+        trace?: never;
+    };
+    "/v2/tasks/{taskId}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Déplacer un pas vers un autre objectif ou une autre étape */
+        patch: operations["moveTask"];
+        trace?: never;
+    };
+    "/v2/tasks/{taskId}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Marquer un pas comme fait */
+        patch: operations["completeTask"];
+        trace?: never;
+    };
+    "/v2/tasks/{taskId}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Remettre un pas à faire */
+        patch: operations["reopenTask"];
+        trace?: never;
+    };
+    "/v2/tasks/{taskId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Supprimer un pas */
+        delete: operations["deleteTask"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/bff/objective-tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tous les objectifs de la personne en arbre : étapes emboîtées, pas sous qui les porte
+         * @description `done` d'un objectif ou d'une étape est rendu tel qu'il est en base : rien ne le tient à jour pour l'instant (`false` par défaut). Celui des pas est juste.
+         */
+        get: operations["getObjectiveTree"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/objectives": {
         parameters: {
             query?: never;
@@ -107,8 +465,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * @deprecated
+         * @description v1 gelée : utiliser la v2.
+         */
         get: operations["ObjectivesController_list_v1"];
         put?: never;
+        /**
+         * @deprecated
+         * @description v1 gelée : utiliser la v2.
+         */
         post: operations["ObjectivesController_create_v1"];
         delete?: never;
         options?: never;
@@ -126,9 +492,17 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
+        /**
+         * @deprecated
+         * @description v1 gelée : utiliser la v2.
+         */
         delete: operations["ObjectivesController_remove_v1"];
         options?: never;
         head?: never;
+        /**
+         * @deprecated
+         * @description v1 gelée : utiliser la v2.
+         */
         patch: operations["ObjectivesController_edit_v1"];
         trace?: never;
     };
@@ -141,6 +515,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /**
+         * @deprecated
+         * @description v1 gelée : utiliser la v2.
+         */
         post: operations["ObjectivesController_addSubObjectiveTo_v1"];
         delete?: never;
         options?: never;
@@ -157,6 +535,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /**
+         * @deprecated
+         * @description v1 gelée : utiliser la v2.
+         */
         post: operations["ObjectivesController_addTask_v1"];
         delete?: never;
         options?: never;
@@ -171,6 +553,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * @deprecated
+         * @description v1 gelée : utiliser la v2.
+         */
         get: operations["TasksController_todayFocus_v1"];
         put?: never;
         post?: never;
@@ -190,9 +576,17 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
+        /**
+         * @deprecated
+         * @description v1 gelée : utiliser la v2.
+         */
         delete: operations["TasksController_remove_v1"];
         options?: never;
         head?: never;
+        /**
+         * @deprecated
+         * @description v1 gelée : utiliser la v2.
+         */
         patch: operations["TasksController_edit_v1"];
         trace?: never;
     };
@@ -204,6 +598,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
+        /**
+         * @deprecated
+         * @description v1 gelée : utiliser la v2.
+         */
         put: operations["TasksController_setDone_v1"];
         post?: never;
         delete?: never;
@@ -228,6 +626,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/objectives/{objectiveId}/conversation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ConversationController_read_v2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/objectives/{objectiveId}/assistant": {
         parameters: {
             query?: never;
@@ -236,6 +650,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["AssistantController_state_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/objectives/{objectiveId}/assistant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AssistantController_state_v2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -260,6 +690,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/objectives/{objectiveId}/assistant/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AssistantController_sendMessage_v2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/objectives/{objectiveId}/assistant/permission": {
         parameters: {
             query?: never;
@@ -276,10 +722,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/objectives/{objectiveId}/assistant/permission": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AssistantController_respondToPermission_v2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: never;
+    schemas: {
+        ObjectiveTreeNode: {
+            id: string;
+            title: string;
+            description: string;
+            why: string;
+            /** Format: date-time */
+            dueDate: string | null;
+            done: boolean;
+            tasks: components["schemas"]["ObjectiveTreeTask"][];
+            subObjectives: components["schemas"]["ObjectiveTreeNode"][];
+        };
+        ObjectiveTreeTask: {
+            id: string;
+            title: string;
+            importance: number;
+            urgency: number;
+            done: boolean;
+        };
+    };
     responses: never;
     parameters: never;
     requestBodies: never;
@@ -312,6 +793,82 @@ export interface operations {
         };
     };
     AuthController_register_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    email: string;
+                    password: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Compte créé */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        user: {
+                            id: string;
+                            name: string;
+                            email: string;
+                        };
+                        session: {
+                            accessToken: string;
+                            refreshToken: string;
+                            /** Format: date-time */
+                            expiresAt: string;
+                        } | null;
+                    };
+                };
+            };
+            /** @description VALIDATION_ERROR, WEAK_PASSWORD, INVALID_EMAIL */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+            /** @description USER_ALREADY_EXIST */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    AuthController_register_v2: {
         parameters: {
             query?: never;
             header?: never;
@@ -463,7 +1020,139 @@ export interface operations {
             };
         };
     };
+    AuthController_login_v2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    email: string;
+                    password: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Session ouverte */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        user: {
+                            id: string;
+                            name: string;
+                            email: string;
+                        };
+                        session: {
+                            accessToken: string;
+                            refreshToken: string;
+                            /** Format: date-time */
+                            expiresAt: string;
+                        };
+                    };
+                };
+            };
+            /** @description INVALID_CREDENTIALS */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+            /** @description EMAIL_NOT_CONFIRMED */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
     AuthController_refresh_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    refreshToken: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Nouvelle session */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        user: {
+                            id: string;
+                            name: string;
+                            email: string;
+                        };
+                        session: {
+                            accessToken: string;
+                            refreshToken: string;
+                            /** Format: date-time */
+                            expiresAt: string;
+                        };
+                    };
+                };
+            };
+            /** @description INVALID_SESSION */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    AuthController_refresh_v2: {
         parameters: {
             query?: never;
             header?: never;
@@ -537,6 +1226,24 @@ export interface operations {
             };
         };
     };
+    AuthController_logout_v2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session fermée */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     AuthController_me_v1: {
         parameters: {
             query?: never;
@@ -574,6 +1281,886 @@ export interface operations {
                                 message: string;
                             }[];
                         };
+                    };
+                };
+            };
+        };
+    };
+    AuthController_me_v2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description La personne connectée */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        name: string;
+                        email: string;
+                    };
+                };
+            };
+            /** @description UNAUTHENTICATED */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    createObjective: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title: string;
+                    description?: string;
+                    why?: string;
+                    dueDate?: string;
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        title: string;
+                        description: string;
+                        why: string;
+                        /** Format: date-time */
+                        dueDate: string | null;
+                        parentObjectiveId: string | null;
+                        done: boolean;
+                    };
+                };
+            };
+            /** @description VALIDATION_ERROR */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    addSubObjective: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectiveId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title: string;
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        title: string;
+                        description: string;
+                        why: string;
+                        /** Format: date-time */
+                        dueDate: string | null;
+                        parentObjectiveId: string | null;
+                        done: boolean;
+                    };
+                };
+            };
+            /** @description OBJECTIVE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    addTaskToObjective: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectiveId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title: string;
+                    importance: number;
+                    urgency: number;
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        title: string;
+                        importance: number;
+                        urgency: number;
+                        done: boolean;
+                        objectiveId: string;
+                    };
+                };
+            };
+            /** @description OBJECTIVE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    renameObjective: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectiveId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title: string;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        title: string;
+                        description: string;
+                        why: string;
+                        /** Format: date-time */
+                        dueDate: string | null;
+                        parentObjectiveId: string | null;
+                        done: boolean;
+                    };
+                };
+            };
+            /** @description OBJECTIVE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    clarifyObjective: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectiveId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    description?: string;
+                    why?: string;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        title: string;
+                        description: string;
+                        why: string;
+                        /** Format: date-time */
+                        dueDate: string | null;
+                        parentObjectiveId: string | null;
+                        done: boolean;
+                    };
+                };
+            };
+            /** @description VALIDATION_ERROR */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+            /** @description OBJECTIVE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    setObjectiveDeadline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectiveId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    dueDate: string;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        title: string;
+                        description: string;
+                        why: string;
+                        /** Format: date-time */
+                        dueDate: string | null;
+                        parentObjectiveId: string | null;
+                        done: boolean;
+                    };
+                };
+            };
+            /** @description VALIDATION_ERROR */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+            /** @description OBJECTIVE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    removeObjectiveDeadline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectiveId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        title: string;
+                        description: string;
+                        why: string;
+                        /** Format: date-time */
+                        dueDate: string | null;
+                        parentObjectiveId: string | null;
+                        done: boolean;
+                    };
+                };
+            };
+            /** @description OBJECTIVE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteObjective: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectiveId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Supprimé, avec tout ce qui en dépend */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description OBJECTIVE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    whatIsTodayFocus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        title: string;
+                        objectiveId: string;
+                        important: number;
+                        urgent: number;
+                        /** Format: date-time */
+                        dueDate?: string;
+                        done: boolean;
+                    }[];
+                };
+            };
+        };
+    };
+    renameTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title: string;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        title: string;
+                        importance: number;
+                        urgency: number;
+                        done: boolean;
+                        objectiveId: string;
+                    };
+                };
+            };
+            /** @description VALIDATION_ERROR */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+            /** @description TASK_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    reprioritizeTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    importance: number;
+                    urgency: number;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        title: string;
+                        importance: number;
+                        urgency: number;
+                        done: boolean;
+                        objectiveId: string;
+                    };
+                };
+            };
+            /** @description VALIDATION_ERROR */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+            /** @description TASK_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    moveTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    objectiveId: string;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        title: string;
+                        importance: number;
+                        urgency: number;
+                        done: boolean;
+                        objectiveId: string;
+                    };
+                };
+            };
+            /** @description VALIDATION_ERROR */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+            /** @description TASK_NOT_FOUND, OBJECTIVE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    completeTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        title: string;
+                        importance: number;
+                        urgency: number;
+                        done: boolean;
+                        objectiveId: string;
+                    };
+                };
+            };
+            /** @description TASK_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    reopenTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        title: string;
+                        importance: number;
+                        urgency: number;
+                        done: boolean;
+                        objectiveId: string;
+                    };
+                };
+            };
+            /** @description TASK_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pas supprimé */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description TASK_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getObjectiveTree: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        objectives: components["schemas"]["ObjectiveTreeNode"][];
                     };
                 };
             };
@@ -1080,7 +2667,125 @@ export interface operations {
             };
         };
     };
+    ConversationController_read_v2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectiveId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        messages: {
+                            id: string;
+                            sender: string;
+                            content: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description CONVERSATION_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
     AssistantController_state_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectiveId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        objectiveId: string;
+                        value: string | {
+                            [key: string]: unknown;
+                        };
+                        /** @enum {string} */
+                        status: "ready" | "processing" | "awaiting-permission";
+                        activity: {
+                            /** @enum {string} */
+                            step: "saving-message" | "thinking" | "checking-permission" | "awaiting-permission" | "reading" | "writing" | "reviewing" | "saving-reply";
+                            elapsedMs: number;
+                            round: number;
+                            done: ("saving-message" | "thinking" | "checking-permission" | "awaiting-permission" | "reading" | "writing" | "reviewing" | "saving-reply")[];
+                        } | null;
+                        pendingToolCall: {
+                            id: string;
+                            name: string;
+                            arguments: unknown;
+                        } | null;
+                        lastRegisteredMessage: {
+                            id: string;
+                            content: string;
+                            sender: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                        } | null;
+                        lastError: {
+                            code: string;
+                            step: string;
+                            at: string;
+                        } | null;
+                    };
+                };
+            };
+            /** @description CONVERSATION_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    AssistantController_state_v2: {
         parameters: {
             query?: never;
             header?: never;
@@ -1244,7 +2949,178 @@ export interface operations {
             };
         };
     };
+    AssistantController_sendMessage_v2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectiveId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    message: string;
+                };
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        objectiveId: string;
+                        value: string | {
+                            [key: string]: unknown;
+                        };
+                        /** @enum {string} */
+                        status: "ready" | "processing" | "awaiting-permission";
+                        activity: {
+                            /** @enum {string} */
+                            step: "saving-message" | "thinking" | "checking-permission" | "awaiting-permission" | "reading" | "writing" | "reviewing" | "saving-reply";
+                            elapsedMs: number;
+                            round: number;
+                            done: ("saving-message" | "thinking" | "checking-permission" | "awaiting-permission" | "reading" | "writing" | "reviewing" | "saving-reply")[];
+                        } | null;
+                        pendingToolCall: {
+                            id: string;
+                            name: string;
+                            arguments: unknown;
+                        } | null;
+                        lastRegisteredMessage: {
+                            id: string;
+                            content: string;
+                            sender: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                        } | null;
+                        lastError: {
+                            code: string;
+                            step: string;
+                            at: string;
+                        } | null;
+                    };
+                };
+            };
+            /** @description CONVERSATION_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+            /** @description WORKFLOW_BUSY */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
     AssistantController_respondToPermission_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectiveId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    granted: boolean;
+                    toolCallId?: string;
+                };
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        objectiveId: string;
+                        value: string | {
+                            [key: string]: unknown;
+                        };
+                        /** @enum {string} */
+                        status: "ready" | "processing" | "awaiting-permission";
+                        activity: {
+                            /** @enum {string} */
+                            step: "saving-message" | "thinking" | "checking-permission" | "awaiting-permission" | "reading" | "writing" | "reviewing" | "saving-reply";
+                            elapsedMs: number;
+                            round: number;
+                            done: ("saving-message" | "thinking" | "checking-permission" | "awaiting-permission" | "reading" | "writing" | "reviewing" | "saving-reply")[];
+                        } | null;
+                        pendingToolCall: {
+                            id: string;
+                            name: string;
+                            arguments: unknown;
+                        } | null;
+                        lastRegisteredMessage: {
+                            id: string;
+                            content: string;
+                            sender: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                        } | null;
+                        lastError: {
+                            code: string;
+                            step: string;
+                            at: string;
+                        } | null;
+                    };
+                };
+            };
+            /** @description NO_PENDING_PERMISSION */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: {
+                                path: string;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    AssistantController_respondToPermission_v2: {
         parameters: {
             query?: never;
             header?: never;

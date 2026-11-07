@@ -1,24 +1,24 @@
-import type { CreateObjectiveInput, EditObjectiveInput, EditTaskInput } from '@/domain/objectives/forms';
-import type { Objective, Task } from '@/domain/objectives/objective';
-import { subtreeIds, tasksInSubtree } from '@/domain/objectives/tree';
+import type { CreateObjectiveInput } from '@/domain/objectives/forms';
+import type { Levels, Objective, Task } from '@/domain/objectives/objective';
+import { subtreeIds } from '@/domain/objectives/tree';
 import { fail, ok, type Result } from '@/domain/shared/result';
 import type {
-  Created,
+  Clarification,
   NewTask,
   ObjectivesAndTasks,
   ObjectivesGateway,
 } from '@/application/ports/objectives-gateway';
 
 /**
- * Apex Brain en mémoire, pour les tests : les mêmes règles que l'API (tri par création, « introuvable » pour un
- * id inconnu, déplacement d'un pas par `objectiveId`, `done` d'un objectif ou d'une étape : au moins un pas, et
- * tous faits, un objectif effacé avec tout ce qui en dépend), des pannes à la demande et des réponses retenues
- * pour jouer les courses (un geste pendant un chargement).
+ * Apex Brain en mémoire, pour les tests : les mêmes règles que la v2 de l'API (tri par création, « introuvable »
+ * pour un id inconnu, chaque commande rend l'élément tel qu'enregistré, `done` d'un objectif ou d'une étape lu
+ * tel qu'il est rangé, sans calcul, un objectif effacé avec tout ce qui en dépend), des pannes à la demande et
+ * des réponses retenues pour jouer les courses (un geste pendant un chargement).
  */
 export class InMemoryObjectivesGateway implements ObjectivesGateway {
   objectives: Objective[] = [];
   tasks: Task[] = [];
-  /** Les appels reçus, dans l'ordre : `list`, `createObjective`… */
+  /** Les appels reçus, dans l'ordre : `getObjectiveTree`, `createObjective`… */
   readonly calls: string[] = [];
 
   private sequence = 0;
@@ -62,80 +62,86 @@ export class InMemoryObjectivesGateway implements ObjectivesGateway {
     return full;
   }
 
-  async list(): Promise<Result<ObjectivesAndTasks>> {
-    return this.respond('list', () =>
+  async getObjectiveTree(): Promise<Result<ObjectivesAndTasks>> {
+    return this.respond('getObjectiveTree', () =>
+      ok({ objectives: this.objectives.map((objective) => ({ ...objective })), tasks: [...this.tasks] }),
+    );
+  }
+
+  async createObjective(input: CreateObjectiveInput): Promise<Result<Objective>> {
+    return this.respond('createObjective', () =>
       ok({
-        objectives: this.objectives.map((objective) => ({ ...objective, done: this.isDone(objective.id) })),
-        tasks: [...this.tasks],
+        ...this.seedObjective({
+          id: this.nextId('o'),
+          title: input.title,
+          description: input.description ?? '',
+          why: input.why ?? '',
+          dueDate: input.dueDate ?? null,
+        }),
       }),
     );
   }
 
-  async createObjective(input: CreateObjectiveInput): Promise<Result<Created>> {
-    return this.respond('createObjective', () => {
-      const objective = this.seedObjective({
-        id: this.nextId('o'),
-        title: input.title,
-        description: input.description ?? '',
-        why: input.why ?? '',
-        dueDate: input.dueDate ?? null,
-      });
-      return ok({ id: objective.id });
-    });
-  }
-
-  async editObjective(objectiveId: string, input: EditObjectiveInput): Promise<Result<void>> {
-    return this.respond('editObjective', () => {
-      const index = this.objectives.findIndex((objective) => objective.id === objectiveId);
-      const old = this.objectives[index];
-      if (!old) return notFound('OBJECTIVE_NOT_FOUND');
-      this.objectives[index] = {
-        ...old,
-        title: input.title,
-        description: input.description ?? old.description,
-        why: input.why ?? old.why,
-        dueDate: input.dueDate === undefined ? old.dueDate : input.dueDate,
-      };
-      return ok(undefined);
-    });
-  }
-
-  async addStage(parentId: string, title: string): Promise<Result<Created>> {
-    return this.respond('addStage', () => {
+  async addSubObjective(parentId: string, title: string): Promise<Result<Objective>> {
+    return this.respond('addSubObjective', () => {
       if (!this.objectives.some((objective) => objective.id === parentId))
         return notFound('OBJECTIVE_NOT_FOUND');
-      return ok({ id: this.seedObjective({ id: this.nextId('e'), title, parentId }).id });
+      return ok({ ...this.seedObjective({ id: this.nextId('e'), title, parentId }) });
     });
   }
 
-  async addTask(objectiveId: string, task: NewTask): Promise<Result<Created>> {
+  async addTask(objectiveId: string, task: NewTask): Promise<Result<Task>> {
     return this.respond('addTask', () => {
       if (!this.objectives.some((objective) => objective.id === objectiveId))
         return notFound('OBJECTIVE_NOT_FOUND');
-      return ok({ id: this.seedTask({ id: this.nextId('p'), objectiveId, ...task }).id });
+      return ok({ ...this.seedTask({ id: this.nextId('p'), objectiveId, ...task }) });
     });
   }
 
-  async editTask(taskId: string, input: EditTaskInput): Promise<Result<void>> {
-    return this.respond('editTask', () => {
-      const index = this.tasks.findIndex((task) => task.id === taskId);
-      const old = this.tasks[index];
-      if (!old) return notFound('TASK_NOT_FOUND');
-      if (!this.objectives.some((objective) => objective.id === input.objectiveId))
-        return notFound('OBJECTIVE_NOT_FOUND');
-      this.tasks[index] = { ...old, ...input };
-      return ok(undefined);
-    });
+  async renameObjective(objectiveId: string, title: string): Promise<Result<Objective>> {
+    return this.changeObjective('renameObjective', objectiveId, (old) => ({ ...old, title }));
   }
 
-  async setTaskDone(taskId: string, done: boolean): Promise<Result<void>> {
-    return this.respond('setTaskDone', () => {
-      const index = this.tasks.findIndex((task) => task.id === taskId);
-      const old = this.tasks[index];
-      if (!old) return notFound('TASK_NOT_FOUND');
-      this.tasks[index] = { ...old, done };
-      return ok(undefined);
-    });
+  async clarifyObjective(objectiveId: string, clarification: Clarification): Promise<Result<Objective>> {
+    return this.changeObjective('clarifyObjective', objectiveId, (old) => ({
+      ...old,
+      description: clarification.description ?? old.description,
+      why: clarification.why ?? old.why,
+    }));
+  }
+
+  async setObjectiveDeadline(objectiveId: string, dueDate: string): Promise<Result<Objective>> {
+    return this.changeObjective('setObjectiveDeadline', objectiveId, (old) => ({ ...old, dueDate }));
+  }
+
+  async removeObjectiveDeadline(objectiveId: string): Promise<Result<Objective>> {
+    return this.changeObjective('removeObjectiveDeadline', objectiveId, (old) => ({ ...old, dueDate: null }));
+  }
+
+  async renameTask(taskId: string, title: string): Promise<Result<Task>> {
+    return this.changeTask('renameTask', taskId, (old) => ({ ...old, title }));
+  }
+
+  async reprioritizeTask(taskId: string, levels: Levels): Promise<Result<Task>> {
+    return this.changeTask('reprioritizeTask', taskId, (old) => ({
+      ...old,
+      importance: levels.importance,
+      urgency: levels.urgency,
+    }));
+  }
+
+  async moveTask(taskId: string, objectiveId: string): Promise<Result<Task>> {
+    return this.changeTask('moveTask', taskId, (old) =>
+      this.objectives.some((objective) => objective.id === objectiveId) ? { ...old, objectiveId } : null,
+    );
+  }
+
+  async completeTask(taskId: string): Promise<Result<Task>> {
+    return this.changeTask('completeTask', taskId, (old) => ({ ...old, done: true }));
+  }
+
+  async reopenTask(taskId: string): Promise<Result<Task>> {
+    return this.changeTask('reopenTask', taskId, (old) => ({ ...old, done: false }));
   }
 
   /** Comme Apex Brain : l'objectif (ou l'étape) part avec ses descendants et tous leurs pas. */
@@ -158,10 +164,36 @@ export class InMemoryObjectivesGateway implements ObjectivesGateway {
     });
   }
 
-  /** Au moins un pas, sous-objectifs compris, et tous faits. */
-  private isDone(objectiveId: string): boolean {
-    const tasks = tasksInSubtree(objectiveId, this.objectives, this.tasks);
-    return tasks.length > 0 && tasks.every((task) => task.done);
+  /** Change un objectif ou une étape et le rend tel qu'enregistré, comme les commandes de la v2. */
+  private changeObjective(
+    operation: string,
+    objectiveId: string,
+    change: (old: Objective) => Objective,
+  ): Promise<Result<Objective>> {
+    return this.respond(operation, () => {
+      const index = this.objectives.findIndex((objective) => objective.id === objectiveId);
+      const old = this.objectives[index];
+      if (!old) return notFound('OBJECTIVE_NOT_FOUND');
+      this.objectives[index] = change(old);
+      return ok({ ...this.objectives[index] });
+    });
+  }
+
+  /** Change un pas et le rend tel qu'enregistré ; `null` : l'objectif visé n'existe pas. */
+  private changeTask(
+    operation: string,
+    taskId: string,
+    change: (old: Task) => Task | null,
+  ): Promise<Result<Task>> {
+    return this.respond(operation, () => {
+      const index = this.tasks.findIndex((task) => task.id === taskId);
+      const old = this.tasks[index];
+      if (!old) return notFound('TASK_NOT_FOUND');
+      const changed = change(old);
+      if (!changed) return notFound('OBJECTIVE_NOT_FOUND');
+      this.tasks[index] = changed;
+      return ok({ ...changed });
+    });
   }
 
   private nextId(prefix: string): string {

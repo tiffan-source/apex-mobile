@@ -84,6 +84,7 @@ d'Apex reste l'application Angular : ce dépôt ne livre que iOS et Android.
 | `npm run typecheck`                       | Génère les types des routes (`expo customize tsconfig.json`), puis `tsc`.            |
 | `npm test`                                | Jest : les règles une fois, l'interface comme sur iOS puis comme sur Android.        |
 | `npm run export`                          | Les bundles iOS et Android (`dist/`), sans construire d'application.                 |
+| `npm run api:pull`                        | Copie le contrat d'Apex Brain (`/docs-json`, `APEX_BRAIN_URL` ou `localhost:3000`).  |
 | `npm run api:types`                       | Régénère les types du contrat d'Apex Brain depuis `openapi/apex-brain.openapi.json`. |
 
 Les tests d'écran rendent les vraies routes (`src/app`) avec les vrais services, branchés sur un

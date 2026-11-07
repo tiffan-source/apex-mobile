@@ -103,17 +103,17 @@ describe('ObjectiveCommands', () => {
     const second = t.commands.setTaskDone('p2', true);
     await flush();
     // La seconde attend la réponse de la première : une seule requête est partie.
-    expect(t.gateway.calls.filter((call) => call === 'setTaskDone')).toHaveLength(1);
+    expect(t.gateway.calls.filter((call) => call === 'completeTask')).toHaveLength(1);
     await t.gateway.release();
     await Promise.all([first, second]);
-    expect(t.gateway.calls.filter((call) => call === 'setTaskDone')).toHaveLength(2);
+    expect(t.gateway.calls.filter((call) => call === 'completeTask')).toHaveLength(2);
     expect(t.gateway.tasks.every((task) => task.done)).toBe(true);
   });
 
   it('un retour en arrière n’écrase pas un geste plus récent', async () => {
     const t = setup(seedSemi);
     await t.load();
-    t.gateway.failNext('setTaskDone');
+    t.gateway.failNext('completeTask');
     const first = t.commands.setTaskDone('p1', true);
     const second = t.commands.setTaskDone('p1', false);
     await Promise.all([first, second]);
@@ -125,7 +125,7 @@ describe('ObjectiveCommands', () => {
   it('un pas coché qui n’est pas enregistré revient en arrière, et le dit', async () => {
     const t = setup(seedSemi);
     await t.load();
-    t.gateway.failNext('setTaskDone');
+    t.gateway.failNext('completeTask');
     await t.commands.setTaskDone('p1', true);
     expect(t.snapshot().tasks.find((task) => task.id === 'p1')?.done).toBe(false);
     expect(t.announcements.report$.get()).toBe(FAILURE_REPORTS.toggleTask);
@@ -171,7 +171,7 @@ describe('ObjectiveCommands', () => {
     const stage = t.commands.addStage(temporaryId, 'Portfolio');
     await Promise.all([created, stage]);
     expect(t.snapshot().objectives).toEqual([]);
-    expect(t.gateway.calls).not.toContain('addStage');
+    expect(t.gateway.calls).not.toContain('addSubObjective');
     expect(t.announcements.report$.get()).toBe(FAILURE_REPORTS.createObjective);
   });
 
@@ -182,7 +182,7 @@ describe('ObjectiveCommands', () => {
     await t.load();
     await t.commands.editObjective('semi', { title: 'Courir un semi' });
     expect(t.snapshot().objectives[0]).toMatchObject({ title: 'Courir un semi', why: 'Tenir six mois' });
-    t.gateway.failNext('editObjective');
+    t.gateway.failNext('renameObjective');
     await t.commands.editObjective('semi', { title: 'Autre', dueDate: null });
     expect(t.snapshot().objectives[0]).toMatchObject({ title: 'Courir un semi', why: 'Tenir six mois' });
     expect(t.announcements.report$.get()).toBe(FAILURE_REPORTS.editObjective);
@@ -201,7 +201,7 @@ describe('ObjectiveCommands', () => {
       urgency: 4,
     });
     expect(t.gateway.tasks.find((task) => task.id === 'p1')?.objectiveId).toBe('mental');
-    t.gateway.failNext('editTask', 'TASK_NOT_FOUND');
+    t.gateway.failNext('renameTask', 'TASK_NOT_FOUND');
     await t.commands.editTask('p1', { title: 'Renommé', objectiveId: 'mental', importance: 4, urgency: 4 });
     expect(t.snapshot().tasks.find((task) => task.id === 'p1')?.title).toBe('Courir 5 km');
     expect(t.announcements.report$.get()).toBe(FAILURE_REPORTS.taskNotFound);
@@ -209,37 +209,35 @@ describe('ObjectiveCommands', () => {
 });
 
 describe('fait ou non fait, le serveur le dit', () => {
-  it('relit les objectifs après un pas coché, ajouté ou modifié', async () => {
-    const t = setup(seedSemi);
+  it('ne relit pas les objectifs après un geste accepté', async () => {
+    const t = setup((gateway) => {
+      seedSemi(gateway);
+      gateway.seedObjective({ id: 'mental', title: 'Mental', parentId: 'semi' });
+    });
     await t.load();
 
     await t.commands.setTaskDone('p1', true);
-    expect(t.onObjectivesChanged).toHaveBeenCalledTimes(1);
-
     await t.commands.addTask('endurance', { title: 'Fractionné', importance: 3, urgency: 2 });
-    expect(t.onObjectivesChanged).toHaveBeenCalledTimes(2);
-
     await t.commands.editTask('p1', {
       title: 'Courir 9 km',
-      objectiveId: 'endurance',
-      importance: 4,
+      objectiveId: 'mental',
+      importance: 2,
       urgency: 4,
     });
-    expect(t.onObjectivesChanged).toHaveBeenCalledTimes(3);
-  });
-
-  it('ne relit rien quand le geste est refusé, ni pour un geste qui ne change pas ce qui est fait', async () => {
-    const t = setup(seedSemi);
-    await t.load();
-
-    t.gateway.failNext('setTaskDone', 'FAIL_TO_SAVE_TASK');
-    await t.commands.setTaskDone('p1', true);
-    await t.commands.addStage('semi', 'Mental');
+    await t.commands.addStage('semi', 'Récupération');
+    await t.commands.editObjective('semi', {
+      title: 'Courir',
+      why: 'Tenir',
+      dueDate: '2027-04-01T00:00:00.000Z',
+    });
+    await t.commands.deleteTask('p2');
+    await t.commands.deleteObjective('mental');
 
     expect(t.onObjectivesChanged).not.toHaveBeenCalled();
+    expect(t.gateway.calls.filter((call) => call === 'getObjectiveTree')).toHaveLength(1);
   });
 
-  it('une étape reste non faite tant que le serveur ne la dit pas faite', async () => {
+  it('une étape montre le « fait » que le serveur a, sans le calculer', async () => {
     const t = setup(seedSemi);
     await t.load();
     const endurance = () => t.snapshot().objectives.find((item) => item.id === 'endurance');
@@ -248,6 +246,13 @@ describe('fait ou non fait, le serveur le dit', () => {
     await t.commands.setTaskDone('p2', true);
     expect(endurance()?.done).toBe(false);
 
+    // Tous ses pas sont faits, mais le serveur ne la dit pas faite : elle ne l'est pas.
+    await t.load();
+    expect(endurance()?.done).toBe(false);
+
+    t.gateway.objectives = t.gateway.objectives.map((item) =>
+      item.id === 'endurance' ? { ...item, done: true } : item,
+    );
     await t.load();
     expect(endurance()?.done).toBe(true);
   });
@@ -266,6 +271,143 @@ describe('fait ou non fait, le serveur le dit', () => {
   });
 });
 
+describe('une commande par changement, et ce que le serveur rend', () => {
+  it('un objectif modifié part en commandes nommées, une par champ changé, et ne s’annonce qu’une fois', async () => {
+    const t = setup((gateway) =>
+      gateway.seedObjective({ id: 'semi', title: 'Courir', description: 'Dix km', why: 'Tenir' }),
+    );
+    await t.load();
+    await t.commands.editObjective('semi', {
+      title: 'Courir un semi',
+      why: 'Tenir six mois',
+      dueDate: '2027-04-01T00:00:00.000Z',
+    });
+    expect(t.gateway.calls.slice(1)).toEqual(['renameObjective', 'clarifyObjective', 'setObjectiveDeadline']);
+    expect(t.gateway.objectives[0]).toMatchObject({
+      title: 'Courir un semi',
+      description: 'Dix km',
+      why: 'Tenir six mois',
+      dueDate: '2027-04-01T00:00:00.000Z',
+    });
+    expect(t.announcer.said.map((item) => item.text)).toEqual([SUCCESS_ANNOUNCEMENTS.objectiveSaved]);
+
+    await t.commands.editObjective('semi', { title: 'Courir un semi', dueDate: null });
+    expect(t.gateway.calls.at(-1)).toBe('removeObjectiveDeadline');
+    await t.commands.editObjective('semi', { title: 'Courir un semi' });
+    expect(t.gateway.calls.at(-1)).toBe('removeObjectiveDeadline');
+  });
+
+  it('une commande refusée parmi d’autres : ce qui est accepté reste, le reste revient, une seule note', async () => {
+    const t = setup((gateway) => gateway.seedObjective({ id: 'semi', title: 'Courir', why: 'Tenir' }));
+    await t.load();
+    t.gateway.failNext('clarifyObjective', 'NETWORK_UNREACHABLE');
+    await t.commands.editObjective('semi', { title: 'Courir un semi', why: 'Tenir six mois' });
+    expect(t.snapshot().objectives[0]).toMatchObject({ title: 'Courir un semi', why: 'Tenir' });
+    expect(t.announcer.said.map((item) => item.text)).toEqual([FAILURE_REPORTS.editObjective]);
+  });
+
+  it('un pas modifié : renommer, reprioriser et déplacer partent chacun de leur côté', async () => {
+    const t = setup((gateway) => {
+      seedSemi(gateway);
+      gateway.seedObjective({ id: 'mental', title: 'Mental', parentId: 'semi' });
+    });
+    await t.load();
+    await t.commands.editTask('p1', {
+      title: 'Courir 6 km',
+      objectiveId: 'mental',
+      importance: 2,
+      urgency: 1,
+    });
+    expect(t.gateway.calls.slice(1)).toEqual(['renameTask', 'reprioritizeTask', 'moveTask']);
+    expect(t.gateway.tasks.find((task) => task.id === 'p1')).toMatchObject({
+      title: 'Courir 6 km',
+      objectiveId: 'mental',
+      importance: 2,
+      urgency: 1,
+    });
+    expect(t.announcer.said.map((item) => item.text)).toEqual([SUCCESS_ANNOUNCEMENTS.taskSaved]);
+
+    // Changer de quadrant n'est qu'une nouvelle importance et une nouvelle urgence.
+    await t.commands.editTask('p1', {
+      title: 'Courir 6 km',
+      objectiveId: 'mental',
+      importance: 4,
+      urgency: 4,
+    });
+    expect(t.gateway.calls.at(-1)).toBe('reprioritizeTask');
+    expect(t.gateway.calls).toHaveLength(5);
+  });
+
+  it('l’élément que la commande rend devient ce que l’écran montre', async () => {
+    const t = setup(seedSemi);
+    await t.load();
+    jest.spyOn(t.gateway, 'renameTask').mockResolvedValueOnce({
+      success: true,
+      data: {
+        id: 'p1',
+        title: 'Courir 5 km.',
+        importance: 4,
+        urgency: 4,
+        done: false,
+        objectiveId: 'endurance',
+      },
+    });
+    await t.commands.editTask('p1', {
+      title: 'courir 5 km',
+      objectiveId: 'endurance',
+      importance: 4,
+      urgency: 4,
+    });
+    expect(t.snapshot().tasks.find((task) => task.id === 'p1')?.title).toBe('Courir 5 km.');
+  });
+
+  it('un geste suivant refusé ramène à ce que le serveur a rendu, pas à l’état d’avant', async () => {
+    const t = setup(seedSemi);
+    await t.load();
+    jest.spyOn(t.gateway, 'renameTask').mockResolvedValueOnce({
+      success: true,
+      data: {
+        id: 'p1',
+        title: 'Courir 5 km.',
+        importance: 4,
+        urgency: 4,
+        done: false,
+        objectiveId: 'endurance',
+      },
+    });
+    t.gateway.failNext('completeTask', 'NETWORK_UNREACHABLE');
+    const renamed = t.commands.editTask('p1', {
+      title: 'courir 5 km',
+      objectiveId: 'endurance',
+      importance: 4,
+      urgency: 4,
+    });
+    const checked = t.commands.setTaskDone('p1', true);
+    await Promise.all([renamed, checked]);
+    expect(t.snapshot().tasks.find((task) => task.id === 'p1')).toMatchObject({
+      title: 'Courir 5 km.',
+      done: false,
+    });
+  });
+
+  it('un pas créé prend ce que le serveur a enregistré, sauf un geste encore en route sur lui', async () => {
+    const t = setup(seedSemi);
+    await t.load();
+    // Le serveur enregistre le titre à sa façon : c'est le sien qui compte.
+    jest.spyOn(t.gateway, 'addTask').mockImplementationOnce(async (objectiveId, task) => ({
+      success: true,
+      data: { ...t.gateway.seedTask({ id: 'p-9', ...task, title: 'Étirements.', objectiveId }) },
+    }));
+    const added = t.commands.addTask('endurance', { title: 'Étirements', importance: 3, urgency: 2 });
+    const temporaryId = t.snapshot().tasks.at(-1)?.id as string;
+    const checked = t.commands.setTaskDone(temporaryId, true);
+    await added;
+    expect(t.snapshot().tasks.at(-1)).toMatchObject({ id: 'p-9', title: 'Étirements', done: true });
+    await checked;
+    expect(t.snapshot().tasks.at(-1)).toMatchObject({ id: 'p-9', title: 'Étirements.', done: true });
+  });
+});
+
 describe('un retour en arrière rend ce que le serveur a accepté', () => {
   const p1 = (t: ReturnType<typeof setup>) => t.snapshot().tasks.find((task) => task.id === 'p1');
   const serverP1 = (t: ReturnType<typeof setup>) => t.gateway.tasks.find((task) => task.id === 'p1');
@@ -273,8 +415,8 @@ describe('un retour en arrière rend ce que le serveur a accepté', () => {
   it('cocher puis décocher hors connexion : le pas revient à ce qu’a le serveur', async () => {
     const t = setup(seedSemi);
     await t.load();
-    t.gateway.failNext('setTaskDone', 'NETWORK_UNREACHABLE');
-    t.gateway.failNext('setTaskDone', 'NETWORK_UNREACHABLE');
+    t.gateway.failNext('completeTask', 'NETWORK_UNREACHABLE');
+    t.gateway.failNext('reopenTask', 'NETWORK_UNREACHABLE');
     await Promise.all([t.commands.setTaskDone('p1', true), t.commands.setTaskDone('p1', false)]);
     expect(serverP1(t)?.done).toBe(false);
     expect(p1(t)?.done).toBe(false);
@@ -297,8 +439,8 @@ describe('un retour en arrière rend ce que le serveur a accepté', () => {
   it('deux modifications refusées : le pas reste dans son quadrant', async () => {
     const t = setup(seedSemi);
     await t.load();
-    t.gateway.failNext('editTask');
-    t.gateway.failNext('editTask');
+    t.gateway.failNext('reprioritizeTask');
+    t.gateway.failNext('reprioritizeTask');
     const task = { title: 'Courir 5 km', objectiveId: 'endurance' };
     await Promise.all([
       t.commands.editTask('p1', { ...task, importance: 4, urgency: 2 }),
@@ -311,8 +453,8 @@ describe('un retour en arrière rend ce que le serveur a accepté', () => {
   it('deux modifications refusées : l’objectif garde son nom', async () => {
     const t = setup(seedSemi);
     await t.load();
-    t.gateway.failNext('editObjective');
-    t.gateway.failNext('editObjective');
+    t.gateway.failNext('renameObjective');
+    t.gateway.failNext('renameObjective');
     await Promise.all([
       t.commands.editObjective('semi', { title: 'B' }),
       t.commands.editObjective('semi', { title: 'C' }),
@@ -325,7 +467,7 @@ describe('un retour en arrière rend ce que le serveur a accepté', () => {
   it('le premier geste accepté, le second refusé : le pas montre le premier', async () => {
     const t = setup(seedSemi);
     await t.load();
-    t.gateway.failNext('setTaskDone', 'UNKNOWN_ERROR', 1);
+    t.gateway.failNext('reopenTask', 'UNKNOWN_ERROR');
     await Promise.all([t.commands.setTaskDone('p1', true), t.commands.setTaskDone('p1', false)]);
     expect(serverP1(t)?.done).toBe(true);
     expect(p1(t)?.done).toBe(true);
@@ -334,7 +476,7 @@ describe('un retour en arrière rend ce que le serveur a accepté', () => {
   it('un pas rangé sur une étape dont la création n’aboutit pas revient dans son étape', async () => {
     const t = setup(seedSemi);
     await t.load();
-    t.gateway.failNext('addStage');
+    t.gateway.failNext('addSubObjective');
     const stage = t.commands.addStage('semi', 'Mental');
     const pendingStage = t.snapshot().objectives.at(-1)?.id as string;
     const moved = t.commands.editTask('p1', {
@@ -346,7 +488,7 @@ describe('un retour en arrière rend ce que le serveur a accepté', () => {
     await Promise.all([stage, moved]);
     expect(p1(t)?.objectiveId).toBe('endurance');
     expect(serverP1(t)?.objectiveId).toBe('endurance');
-    expect(t.gateway.calls).not.toContain('editTask');
+    expect(t.gateway.calls).not.toContain('moveTask');
     expect(t.announcements.report$.get()).toBe(FAILURE_REPORTS.addStage);
   });
 });
@@ -364,7 +506,7 @@ describe('la fin d’une session', () => {
     await t.gateway.release();
     expect(await waiting).toBeNull();
     await inFlight;
-    expect(t.gateway.calls).toEqual(['list', 'setTaskDone']);
+    expect(t.gateway.calls).toEqual(['getObjectiveTree', 'completeTask']);
     expect(t.gateway.objectives.map((objective) => objective.title)).not.toContain(
       'Projet de la session fermée',
     );
@@ -385,7 +527,7 @@ describe('la fin d’une session', () => {
     await inFlight;
     const result = await loading;
     expect(!result.success && result.error.code).toBe(CLIENT_ERRORS.signedOut);
-    expect(t.gateway.calls.filter((call) => call === 'list')).toHaveLength(1);
+    expect(t.gateway.calls.filter((call) => call === 'getObjectiveTree')).toHaveLength(1);
   });
 
   it('une session suivante ne connaît pas les ids de la précédente', async () => {
@@ -421,20 +563,20 @@ describe('ObjectivesLoader', () => {
     await t.gateway.release();
     await Promise.all([reloading, done]);
     expect(t.snapshot().tasks.find((task) => task.id === 'p1')?.done).toBe(true);
-    expect(t.gateway.calls.filter((call) => call === 'list')).toHaveLength(3);
+    expect(t.gateway.calls.filter((call) => call === 'getObjectiveTree')).toHaveLength(3);
   });
 
   it('un rechargement sans geste pendant sa lecture ne relit pas la base', async () => {
     const t = setup(seedSemi);
     await t.load();
     await t.load();
-    expect(t.gateway.calls.filter((call) => call === 'list')).toHaveLength(2);
+    expect(t.gateway.calls.filter((call) => call === 'getObjectiveTree')).toHaveLength(2);
   });
 
   it("rend l'échec d'un chargement sans toucher à la copie", async () => {
     const t = setup(seedSemi);
     await t.load();
-    t.gateway.failNext('list', 'NETWORK_UNREACHABLE');
+    t.gateway.failNext('getObjectiveTree', 'NETWORK_UNREACHABLE');
     const result = await t.load();
     expect(result.success).toBe(false);
     expect(t.snapshot().objectives).toHaveLength(2);
@@ -445,7 +587,7 @@ describe('ObjectivesLoader', () => {
     await t.load();
     const [first, second] = await Promise.all([t.loader.load(), t.loader.load()]);
     expect(first.success && second.success).toBe(true);
-    expect(t.gateway.calls.filter((call) => call === 'list')).toHaveLength(3);
+    expect(t.gateway.calls.filter((call) => call === 'getObjectiveTree')).toHaveLength(3);
   });
 
   it('un chargement abandonné ne relit pas la base, même si un geste l’a dépassé', async () => {
@@ -458,7 +600,7 @@ describe('ObjectivesLoader', () => {
     abandoned.abort();
     await t.gateway.release();
     await Promise.all([loading, done]);
-    expect(t.gateway.calls.filter((call) => call === 'list')).toHaveLength(2);
+    expect(t.gateway.calls.filter((call) => call === 'getObjectiveTree')).toHaveLength(2);
   });
 });
 
@@ -487,7 +629,7 @@ describe('effacer', () => {
     gateway.seedTask({ id: 'p3', title: 'Visualiser la course', objectiveId: 'mental' });
   }
 
-  it('un pas quitte l’écran tout de suite, puis la base ; les objectifs sont relus, sans rien annoncer', async () => {
+  it('un pas quitte l’écran tout de suite, puis la base, sans relire ni rien annoncer', async () => {
     const t = setup(seedPlan);
     await t.load();
     t.gateway.hold();
@@ -497,7 +639,7 @@ describe('effacer', () => {
     await t.gateway.release();
     await erased;
     expect(ids(t.gateway.tasks)).toEqual(['p2', 'p3']);
-    expect(t.onObjectivesChanged).toHaveBeenCalledTimes(1);
+    expect(t.onObjectivesChanged).not.toHaveBeenCalled();
     expect(t.announcer.said).toEqual([]);
   });
 
@@ -532,7 +674,7 @@ describe('effacer', () => {
   it('cocher puis effacer hors connexion : le pas revient tel que le serveur l’a, non coché', async () => {
     const t = setup(seedPlan);
     await t.load();
-    t.gateway.failNext('setTaskDone', 'NETWORK_UNREACHABLE');
+    t.gateway.failNext('completeTask', 'NETWORK_UNREACHABLE');
     t.gateway.failNext('deleteTask', 'NETWORK_UNREACHABLE');
     await Promise.all([t.commands.setTaskDone('p1', true), t.commands.deleteTask('p1')]);
     expect(t.snapshot().tasks[0]).toMatchObject({ id: 'p1', done: false });
@@ -546,7 +688,7 @@ describe('effacer', () => {
     const temporaryId = t.snapshot().tasks.at(-1)?.id as string;
     const erased = t.commands.deleteTask(temporaryId);
     await Promise.all([added, erased]);
-    expect(t.gateway.calls.filter((call) => call !== 'list')).toEqual(['addTask', 'deleteTask']);
+    expect(t.gateway.calls.filter((call) => call !== 'getObjectiveTree')).toEqual(['addTask', 'deleteTask']);
     expect(t.gateway.tasks.map((task) => task.title)).not.toContain('Étirements');
     expect(t.snapshot().tasks.map((task) => task.title)).not.toContain('Étirements');
   });
@@ -563,7 +705,7 @@ describe('effacer', () => {
     expect(t.announcements.report$.get()).toBe(FAILURE_REPORTS.addTask);
   });
 
-  it('une étape part avec ses pas, s’annonce, et les objectifs sont relus', async () => {
+  it('une étape part avec ses pas, s’annonce, sans relire', async () => {
     const t = setup(seedPlan);
     await t.load();
     t.gateway.hold();
@@ -575,7 +717,7 @@ describe('effacer', () => {
     expect(ids(t.gateway.objectives)).toEqual(['semi', 'mental']);
     expect(ids(t.gateway.tasks)).toEqual(['p3']);
     expect(t.announcer.said.map((item) => item.text)).toEqual([SUCCESS_ANNOUNCEMENTS.stageErased]);
-    expect(t.onObjectivesChanged).toHaveBeenCalledTimes(1);
+    expect(t.onObjectivesChanged).not.toHaveBeenCalled();
   });
 
   it('une étape qui n’est pas effacée revient à sa place, avec ses pas', async () => {
@@ -630,7 +772,7 @@ describe('effacer', () => {
   it('une étape renommée puis effacée, les deux refusés : elle revient avec le nom que le serveur a', async () => {
     const t = setup(seedPlan);
     await t.load();
-    t.gateway.failNext('editObjective');
+    t.gateway.failNext('renameObjective');
     t.gateway.failNext('deleteObjective');
     await Promise.all([
       t.commands.editObjective('endurance', { title: 'Fond' }),
@@ -699,7 +841,7 @@ describe('effacer', () => {
   it('un pas coché, puis son étape effacée, les deux refusés : le pas revient non coché', async () => {
     const t = setup(seedPlan);
     await t.load();
-    t.gateway.failNext('setTaskDone', 'NETWORK_UNREACHABLE');
+    t.gateway.failNext('completeTask', 'NETWORK_UNREACHABLE');
     t.gateway.failNext('deleteObjective', 'NETWORK_UNREACHABLE');
     await Promise.all([t.commands.setTaskDone('p2', true), t.commands.deleteObjective('endurance')]);
     expect(t.snapshot().tasks.find((task) => task.id === 'p2')?.done).toBe(false);

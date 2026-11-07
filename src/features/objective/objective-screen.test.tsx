@@ -14,7 +14,7 @@ function semiMarathon(app: TestApp) {
     why: 'Tenir six mois',
     dueDate: new Date(2027, 4, 15).toISOString(),
   });
-  app.objectives.seedObjective({ id: 's1', title: 'Bases', parentId: 'o1' });
+  app.objectives.seedObjective({ id: 's1', title: 'Bases', parentId: 'o1', done: true });
   app.objectives.seedObjective({ id: 's2', title: 'Endurance', parentId: 'o1' });
   app.objectives.seedObjective({ id: 's3', title: 'Fractionné', parentId: 'o1' });
   app.objectives.seedTask({ id: 't1', title: 'Marcher 20 minutes', objectiveId: 's1', done: true });
@@ -40,58 +40,55 @@ describe("L'arête", () => {
     expect(app.announcer.said.map((item) => item.text)).toContain(typeset('Fractionné · à faire'));
   });
 
-  it('dit ce que le serveur sait : cocher le dernier pas fait passer étape et objectif à « faite »', async () => {
-    const app = createTestApp();
-    semiMarathon(app);
-    await renderApp(app, '/objectifs/o1');
-
-    await fireEvent.press(await screen.findByRole('button', { name: 'Endurance : À faire' }));
-    await fireEvent.press(await screen.findByRole('checkbox', { name: 'Sortie de 45 minutes' }));
-
-    await waitFor(() => expect(screen.getByText('Étape · faite')).toBeOnTheScreen());
-    expect(screen.getByRole('button', { name: 'Endurance : Faite' })).toBeOnTheScreen();
-    await waitFor(() => expect(app.objectives.calls.filter((call) => call === 'list')).toHaveLength(2));
-  });
-
-  it("n'écrit « étape accomplie » qu'une fois que le serveur l'a dit", async () => {
+  it('cocher le dernier pas ne relit rien : l’étape reste « à faire » tant que le serveur ne la dit pas faite', async () => {
     const app = createTestApp();
     semiMarathon(app);
     await renderApp(app, '/objectifs/o1');
     const legende = (texte: string) => screen.queryByText(texte, { includeHiddenElements: true });
 
     await fireEvent.press(await screen.findByRole('button', { name: 'Endurance : À faire' }));
-    app.objectives.hold();
     await fireEvent.press(await screen.findByRole('checkbox', { name: 'Sortie de 45 minutes' }));
 
+    await waitFor(() => expect(app.objectives.calls).toContain('completeTask'));
     await waitFor(() => expect(legende('2 pas faits')).toBeOnTheScreen());
     expect(screen.getByText('Étape · à faire')).toBeOnTheScreen();
+    expect(app.objectives.calls.filter((call) => call === 'getObjectiveTree')).toHaveLength(1);
+  });
 
-    await app.objectives.release();
+  it('dit l’étape faite quand le serveur la dit faite, à la lecture suivante', async () => {
+    const app = createTestApp();
+    semiMarathon(app);
+    await renderApp(app, '/objectifs/o1');
+    const legende = (texte: string) => screen.queryByText(texte, { includeHiddenElements: true });
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Endurance : À faire' }));
+    await fireEvent.press(await screen.findByRole('checkbox', { name: 'Sortie de 45 minutes' }));
+    await waitFor(() => expect(app.objectives.calls).toContain('completeTask'));
+
+    app.objectives.objectives = app.objectives.objectives.map((item) =>
+      item.id === 's2' ? { ...item, done: true } : item,
+    );
+    await act(async () =>
+      screen.getByTestId('ecran-arete-defilement').props.refreshControl.props.onRefresh(),
+    );
     await waitFor(() => expect(screen.getByText('Étape · faite')).toBeOnTheScreen());
+    expect(screen.getByRole('button', { name: 'Endurance : Faite' })).toBeOnTheScreen();
     expect(legende('2 pas faits · étape accomplie')).toBeOnTheScreen();
   });
 
-  it('ne montre le spinner que pour le geste de tirer, pas pour la relecture après un pas coché', async () => {
+  it('ne montre le spinner que pour le geste de tirer, pas pour un pas coché', async () => {
     const app = createTestApp();
     semiMarathon(app);
     await renderApp(app, '/objectifs/o1');
     await fireEvent.press(await screen.findByRole('button', { name: 'Endurance : À faire' }));
     const spinner = () => screen.getByTestId('ecran-arete-defilement').props.refreshControl.props;
 
-    let repondre = () => undefined as void;
-    const lire = app.objectives.list.bind(app.objectives);
-    const relecture = jest.spyOn(app.objectives, 'list').mockImplementationOnce(async () => {
-      await new Promise<void>((resolve) => {
-        repondre = resolve;
-      });
-      return lire();
-    });
+    app.objectives.hold();
     await fireEvent.press(await screen.findByRole('checkbox', { name: 'Sortie de 45 minutes' }));
-    await waitFor(() => expect(relecture).toHaveBeenCalled());
-    await act(() => jest.advanceTimersByTimeAsync(100)); // l'écran suit l'état de la relecture
+    await act(() => jest.advanceTimersByTimeAsync(100));
     expect(spinner().refreshing).toBe(false);
-    repondre();
-    await waitFor(() => expect(screen.getByText('Étape · faite')).toBeOnTheScreen());
+    await app.objectives.release();
+    await waitFor(() => expect(app.objectives.calls).toContain('completeTask'));
 
     app.objectives.hold();
     await act(async () => spinner().onRefresh());

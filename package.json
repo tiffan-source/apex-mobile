@@ -17,6 +17,7 @@
     "test": "jest",
     "verifier": "npm run format:check && npm run lint && npm run typecheck && npm test",
     "export": "expo export --platform ios --platform android",
+    "api:pull": "node scripts/api-pull.mjs && prettier --write openapi/apex-brain.openapi.json",
     "api:types": "npx --yes openapi-typescript@7.13.0 openapi/apex-brain.openapi.json -o src/infrastructure/apex-brain/schema.d.ts && prettier --write src/infrastructure/apex-brain/schema.d.ts"
   },
   "dependencies": {

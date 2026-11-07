@@ -22,7 +22,7 @@ import {
 } from '@/domain/objectives/snapshot';
 import { CLIENT_ERRORS, UNKNOWN_ERROR, fail, ok, type Failure, type Result } from '@/domain/shared/result';
 import type { AnnouncementCenter } from '../announcements/announcement-center';
-import type { NewTask, ObjectivesGateway } from '../ports/objectives-gateway';
+import type { Clarification, NewTask, ObjectivesGateway } from '../ports/objectives-gateway';
 import type { ObjectivesCache, TemporaryIds } from './objectives-cache';
 import { PendingChanges } from './pending-changes';
 import { SessionClosedError, type WriteQueue } from './write-queue';
@@ -32,16 +32,20 @@ import { SessionClosedError, type WriteQueue } from './write-queue';
  * copie locale (mise à jour optimiste, avec un id temporaire pour ce qu'il crée), puis s'écrit dans la file,
  * puis se réconcilie (id définitif, annonce) ou revient en arrière (signalement).
  *
+ * - Chaque geste part en commandes nommées de la v2 d'Apex Brain (renommer, clarifier, fixer l'échéance,
+ *   reprioriser, déplacer, cocher…) : une par champ changé, chacune avec son retour en arrière.
  * - La réconciliation se fait dans la file même, dès la réponse : l'écriture suivante part de l'état qu'elle a
- *   laissé (id définitif retenu, ce que le serveur a accepté).
+ *   laissé (id définitif retenu, ce que le serveur a accepté). L'élément que la commande rend devient ce que le
+ *   serveur a accepté (`accept…`) : pas de relecture des objectifs après un geste.
  * - Un retour en arrière rend à l'élément ce que le serveur a accepté (`PendingChanges`), quand le dernier
  *   geste en route sur lui est réglé : jamais la valeur d'un geste refusé, ni ne défait un geste plus récent.
  * - Un geste dont la session a pris fin ne se réconcilie pas et ne dit rien : la personne suivante ne voit
  *   rien de la précédente.
- * - Fait ou non fait, pour une étape ou un objectif, c'est le serveur qui le dit : après un pas coché, ajouté,
- *   modifié ou effacé, ou une étape effacée, les objectifs sont relus (`onObjectivesChanged`).
+ * - Fait ou non fait, pour une étape ou un objectif, c'est le serveur qui le dit, à la lecture suivante : le
+ *   client ne le calcule pas, et ne relit pas l'arbre pour autant.
  * - Effacer retire tout de suite l'élément de l'écran, avec ce qui en dépend ; un effacement refusé remet tout à
- *   sa place, tel que le serveur l'a. Un élément déjà effacé côté serveur (introuvable) l'est : rien à dire.
+ *   sa place, tel que le serveur l'a, puis fait relire les objectifs (`onObjectivesChanged`) : la seule relecture
+ *   qu'un geste demande. Un élément déjà effacé côté serveur (introuvable) l'est : rien à dire.
  */
 
 export type ObjectiveCommandsDeps = {
@@ -50,7 +54,7 @@ export type ObjectiveCommandsDeps = {
   readonly writes: WriteQueue;
   readonly announcements: AnnouncementCenter;
   readonly ids: TemporaryIds;
-  /** Un geste a pu changer ce qui est fait : les objectifs sont à relire. */
+  /** Un effacement a été refusé : les objectifs sont à relire, le serveur dit ce qui est vrai. */
   readonly onObjectivesChanged: () => void;
 };
 
@@ -117,31 +121,59 @@ export class ObjectiveCommands {
     return null;
   }
 
-  /** Modifie un objectif ou une étape : seul ce qui a changé part (`toEditObjectiveInput`). */
+  /**
+   * Modifie un objectif ou une étape : une commande par champ changé (`rename`, `clarify` pour la description et le
+   * pourquoi, `set-deadline` ou `remove-deadline`). Ce qui n'a pas changé ne part pas.
+   */
   async editObjective(objectiveId: string, input: EditObjectiveInput): Promise<void> {
     const { cache, gateway, writes } = this.deps;
-    const id = writes.resolve(objectiveId);
-    const shown = findObjective(cache.read(), id);
+    const shown = findObjective(cache.read(), writes.resolve(objectiveId));
     if (!shown) return;
-    // Un champ absent reste tel quel, comme sur le serveur.
-    const change = (objective: Objective): Objective => ({
-      ...objective,
-      title: input.title,
-      description: input.description ?? objective.description,
-      why: input.why ?? objective.why,
-      dueDate: input.dueDate === undefined ? objective.dueDate : input.dueDate,
-    });
-    this.objectives.begin(id, shown);
-    cache.update((snapshot) => updateObjective(snapshot, id, change));
+    const clarification: { description?: string; why?: string } = {};
+    if (input.description !== undefined && input.description !== shown.description)
+      clarification.description = input.description;
+    if (input.why !== undefined && input.why !== shown.why) clarification.why = input.why;
+    const dueDate = input.dueDate;
 
-    const sent = await this.write(
-      async () => {
-        const target = writes.resolve(objectiveId);
-        return isTemporaryId(target) ? SKIPPED : this.request(() => gateway.editObjective(target, input));
-      },
-      (result) => this.settleObjective(objectiveId, accepted(result) ? change : null),
-    );
-    this.tell(sent, 'editObjective', SUCCESS_ANNOUNCEMENTS.objectiveSaved);
+    const sent: Promise<Sent<Objective> | typeof CLOSED>[] = [];
+    if (input.title !== shown.title) {
+      const title = input.title;
+      sent.push(
+        this.changeObjective(
+          objectiveId,
+          (objective) => ({ ...objective, title }),
+          (id) => gateway.renameObjective(id, title),
+        ),
+      );
+    }
+    if (Object.keys(clarification).length > 0) {
+      const asked: Clarification = clarification;
+      sent.push(
+        this.changeObjective(
+          objectiveId,
+          (objective) => ({
+            ...objective,
+            description: asked.description ?? objective.description,
+            why: asked.why ?? objective.why,
+          }),
+          (id) => gateway.clarifyObjective(id, asked),
+        ),
+      );
+    }
+    if (dueDate !== undefined && dueDate !== shown.dueDate) {
+      sent.push(
+        this.changeObjective(
+          objectiveId,
+          (objective) => ({ ...objective, dueDate }),
+          (id) =>
+            dueDate === null
+              ? gateway.removeObjectiveDeadline(id)
+              : gateway.setObjectiveDeadline(id, dueDate),
+        ),
+      );
+    }
+    if (sent.length === 0) return;
+    this.tellAll(await Promise.all(sent), 'editObjective', SUCCESS_ANNOUNCEMENTS.objectiveSaved);
   }
 
   /** Ajoute une étape à un objectif. */
@@ -163,7 +195,9 @@ export class ObjectiveCommands {
     const sent = await this.write(
       async () => {
         const parentId = writes.resolve(objectiveId);
-        return isTemporaryId(parentId) ? SKIPPED : this.request(() => gateway.addStage(parentId, title));
+        return isTemporaryId(parentId)
+          ? SKIPPED
+          : this.request(() => gateway.addSubObjective(parentId, title));
       },
       (result) => this.settleCreatedObjective(temporaryId, result),
     );
@@ -186,67 +220,77 @@ export class ObjectiveCommands {
       },
       (result) => {
         if (accepted(result)) {
-          // Le pas garde son état optimiste (coché, déplacé…) : ces gestes partent ensuite dans la file.
+          // Le pas garde son état optimiste (coché, déplacé…) tant que ces gestes attendent leur tour dans la file.
           this.link(temporaryId, result.data.id);
           this.deps.cache.update((snapshot) => swapTaskId(snapshot, temporaryId, result.data.id));
+          this.acceptTask(result.data);
         } else {
           this.deps.cache.update((snapshot) => removeTask(snapshot, temporaryId));
         }
       },
     );
     this.tell(sent, 'addTask', SUCCESS_ANNOUNCEMENTS.taskAdded);
-    this.reread(sent);
   }
 
-  /** Modifie un pas, ou le déplace en changeant `objectiveId`. Son « fait » ne change pas. */
+  /**
+   * Modifie un pas : une commande par changement (`rename`, `reprioritize` pour l'importance et l'urgence, `move`
+   * pour un autre porteur). Son « fait » ne change pas.
+   */
   async editTask(taskId: string, input: EditTaskInput): Promise<void> {
     const { cache, gateway, writes } = this.deps;
-    const id = writes.resolve(taskId);
-    const shown = findTask(cache.read(), id);
+    const shown = findTask(cache.read(), writes.resolve(taskId));
     if (!shown) return;
-    const change = (task: Task): Task => ({
-      ...task,
-      title: input.title,
-      importance: input.importance,
-      urgency: input.urgency,
-      objectiveId: writes.resolve(input.objectiveId),
-    });
-    this.tasks.begin(id, shown);
-    cache.update((snapshot) => updateTask(snapshot, id, change));
 
-    const sent = await this.write(
-      async () => {
-        const target = writes.resolve(taskId);
-        const objectiveId = writes.resolve(input.objectiveId);
-        return isTemporaryId(target) || isTemporaryId(objectiveId)
-          ? SKIPPED
-          : this.request(() => gateway.editTask(target, { ...input, objectiveId }));
-      },
-      (result) => this.settleTask(taskId, accepted(result) ? change : null),
-    );
-    this.tell(sent, 'editTask', SUCCESS_ANNOUNCEMENTS.taskSaved);
-    this.reread(sent);
+    const sent: Promise<Sent<Task> | typeof CLOSED>[] = [];
+    if (input.title !== shown.title) {
+      const title = input.title;
+      sent.push(
+        this.changeTask(
+          taskId,
+          (task) => ({ ...task, title }),
+          (id) => this.request(() => gateway.renameTask(id, title)),
+        ),
+      );
+    }
+    if (input.importance !== shown.importance || input.urgency !== shown.urgency) {
+      const levels = { importance: input.importance, urgency: input.urgency };
+      sent.push(
+        this.changeTask(
+          taskId,
+          (task) => ({ ...task, ...levels }),
+          (id) => this.request(() => gateway.reprioritizeTask(id, levels)),
+        ),
+      );
+    }
+    if (writes.resolve(input.objectiveId) !== writes.resolve(shown.objectiveId)) {
+      sent.push(
+        this.changeTask(
+          taskId,
+          (task) => ({ ...task, objectiveId: writes.resolve(input.objectiveId) }),
+          async (id) => {
+            // Le nouveau porteur n'a jamais été enregistré (déjà signalé) : le pas reste où il est.
+            const objectiveId = writes.resolve(input.objectiveId);
+            return isTemporaryId(objectiveId)
+              ? SKIPPED
+              : this.request(() => gateway.moveTask(id, objectiveId));
+          },
+        ),
+      );
+    }
+    if (sent.length === 0) return;
+    this.tellAll(await Promise.all(sent), 'editTask', SUCCESS_ANNOUNCEMENTS.taskSaved);
   }
 
-  /** Coche ou décoche un pas. */
+  /** Coche (`complete`) ou décoche (`reopen`) un pas. */
   async setTaskDone(taskId: string, done: boolean): Promise<void> {
     const { cache, gateway, writes } = this.deps;
-    const id = writes.resolve(taskId);
-    const shown = findTask(cache.read(), id);
-    if (!shown) return;
-    const change = (task: Task): Task => ({ ...task, done });
-    this.tasks.begin(id, shown);
-    cache.update((snapshot) => updateTask(snapshot, id, change));
-
-    const sent = await this.write(
-      async () => {
-        const target = writes.resolve(taskId);
-        return isTemporaryId(target) ? SKIPPED : this.request(() => gateway.setTaskDone(target, done));
-      },
-      (result) => this.settleTask(taskId, accepted(result) ? change : null),
+    if (!findTask(cache.read(), writes.resolve(taskId))) return;
+    const sent = await this.changeTask(
+      taskId,
+      (task) => ({ ...task, done }),
+      (id) => this.request(() => (done ? gateway.completeTask(id) : gateway.reopenTask(id))),
     );
     this.tell(sent, 'toggleTask', done ? SUCCESS_ANNOUNCEMENTS.taskDone : SUCCESS_ANNOUNCEMENTS.taskUndone);
-    this.reread(sent);
   }
 
   /**
@@ -272,8 +316,6 @@ export class ObjectiveCommands {
       (result) => this.settleErased(erasure, result !== SKIPPED && !result.success),
     );
     this.tellErased(sent, erasure, 'eraseTask');
-    // Sans ce pas, son étape peut être faite : le serveur le dira à la prochaine lecture.
-    this.reread(sent);
   }
 
   /**
@@ -307,8 +349,6 @@ export class ObjectiveCommands {
       isStage ? 'eraseStage' : 'eraseObjective',
       isStage ? SUCCESS_ANNOUNCEMENTS.stageErased : SUCCESS_ANNOUNCEMENTS.objectiveErased,
     );
-    // Sans cette étape, son objectif peut être fait : le serveur le dira à la prochaine lecture.
-    if (isStage) this.reread(sent);
   }
 
   /** L'id définitif d'un élément s'il est connu, sinon l'id tel quel. */
@@ -324,13 +364,74 @@ export class ObjectiveCommands {
   }
 
   /** Un objectif ou une étape créé : son id définitif, ou il disparaît avec ce qui n'existe que sur lui. */
-  private settleCreatedObjective(temporaryId: string, result: Sent<{ readonly id: string }>): void {
+  private settleCreatedObjective(temporaryId: string, result: Sent<Objective>): void {
     if (accepted(result)) {
       this.link(temporaryId, result.data.id);
       this.deps.cache.update((snapshot) => swapObjectiveId(snapshot, temporaryId, result.data.id));
+      this.acceptObjective(result.data);
     } else {
       this.deps.cache.update((snapshot) => removeObjective(snapshot, temporaryId));
     }
+  }
+
+  /**
+   * Une commande sur un objectif ou une étape : le changement s'affiche tout de suite, la commande part à son tour,
+   * et l'élément qu'elle rend devient ce que le serveur a accepté.
+   */
+  private async changeObjective(
+    objectiveId: string,
+    change: (objective: Objective) => Objective,
+    send: (id: string) => Promise<Result<Objective>>,
+  ): Promise<Sent<Objective> | typeof CLOSED> {
+    const { cache, writes } = this.deps;
+    const id = writes.resolve(objectiveId);
+    const shown = findObjective(cache.read(), id);
+    if (!shown) return SKIPPED;
+    this.objectives.begin(id, shown);
+    cache.update((snapshot) => updateObjective(snapshot, id, change));
+    return this.write(
+      async () => {
+        const target = writes.resolve(objectiveId);
+        return isTemporaryId(target) ? SKIPPED : this.request(() => send(target));
+      },
+      (result) => this.settleObjective(objectiveId, accepted(result) ? () => result.data : null),
+    );
+  }
+
+  /** Une commande sur un pas, comme `changeObjective` ; `send` peut sauter l'écriture (`SKIPPED`). */
+  private async changeTask(
+    taskId: string,
+    change: (task: Task) => Task,
+    send: (id: string) => Promise<Sent<Task>>,
+  ): Promise<Sent<Task> | typeof CLOSED> {
+    const { cache, writes } = this.deps;
+    const id = writes.resolve(taskId);
+    const shown = findTask(cache.read(), id);
+    if (!shown) return SKIPPED;
+    this.tasks.begin(id, shown);
+    cache.update((snapshot) => updateTask(snapshot, id, change));
+    return this.write(
+      async () => {
+        const target = writes.resolve(taskId);
+        return isTemporaryId(target) ? SKIPPED : send(target);
+      },
+      (result) => this.settleTask(taskId, accepted(result) ? () => result.data : null),
+    );
+  }
+
+  /**
+   * Ce que le serveur a enregistré d'un pas qui vient d'être créé : le point de départ des gestes en route sur lui,
+   * ou, s'il n'y en a pas, ce que l'écran montre.
+   */
+  private acceptTask(task: Task): void {
+    if (this.tasks.confirm(task.id, task)) return;
+    this.deps.cache.update((snapshot) => updateTask(snapshot, task.id, () => task));
+  }
+
+  /** Comme `acceptTask`, pour un objectif ou une étape. */
+  private acceptObjective(objective: Objective): void {
+    if (this.objectives.confirm(objective.id, objective)) return;
+    this.deps.cache.update((snapshot) => updateObjective(snapshot, objective.id, () => objective));
   }
 
   /** Le geste sur un pas est réglé ; le dernier rend au pas ce que le serveur en a accepté. */
@@ -493,9 +594,20 @@ export class ObjectiveCommands {
     else this.report(action, sent.error);
   }
 
-  /** Une écriture acceptée a pu changer ce qui est fait : le serveur le dira à la prochaine lecture. */
-  private reread<T>(sent: Sent<T> | typeof CLOSED): void {
-    if (sent !== CLOSED && accepted(sent)) this.deps.onObjectivesChanged();
+  /**
+   * Un geste parti en plusieurs commandes : une seule annonce. Ce qui n'a pas abouti est signalé une fois ; la
+   * réussite n'est annoncée que si toutes ont abouti. Rien si la session a pris fin.
+   */
+  private tellAll<T>(
+    sent: readonly (Sent<T> | typeof CLOSED)[],
+    action: FailedAction,
+    success: string,
+  ): void {
+    if (sent.includes(CLOSED)) return;
+    const refused = sent.find((one) => one !== SKIPPED && one !== CLOSED && !one.success);
+    if (refused) return this.tell(refused, action, success);
+    if (sent.some((one) => one === SKIPPED)) return;
+    this.deps.announcements.announce(success);
   }
 
   /** Plus de session : l'écran de connexion le dit, rien d'autre n'est à signaler. */

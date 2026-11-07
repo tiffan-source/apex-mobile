@@ -11,32 +11,32 @@ export class HttpAuthGateway implements AuthGateway {
   constructor(private readonly client: ApexClient) {}
 
   register(credentials: Credentials): Promise<Result<Registered>> {
-    return mapResult(this.client.POST('/v1/auth/register', { body: credentials }), (data) => ({
+    return mapResult(this.client.POST('/v2/auth/register', { body: credentials }), (data) => ({
       user: data.user,
       session: data.session,
     }));
   }
 
   login(credentials: Credentials): Promise<Result<SignedIn>> {
-    return mapResult(this.client.POST('/v1/auth/login', { body: credentials }), (data) => ({
+    return mapResult(this.client.POST('/v2/auth/login', { body: credentials }), (data) => ({
       user: data.user,
       session: data.session,
     }));
   }
 
   refresh(refreshToken: string): Promise<Result<SignedIn>> {
-    return mapResult(this.client.POST('/v1/auth/refresh', { body: { refreshToken } }), (data) => ({
+    return mapResult(this.client.POST('/v2/auth/refresh', { body: { refreshToken } }), (data) => ({
       user: data.user,
       session: data.session,
     }));
   }
 
   logout(accessToken: string): Promise<Result<void>> {
-    return mapResult(this.client.POST('/v1/auth/logout', { headers: bearer(accessToken) }), () => undefined);
+    return mapResult(this.client.POST('/v2/auth/logout', { headers: bearer(accessToken) }), () => undefined);
   }
 
   me(accessToken: string): Promise<Result<User>> {
-    return mapResult(this.client.GET('/v1/auth/me', { headers: bearer(accessToken) }), (data) => ({
+    return mapResult(this.client.GET('/v2/auth/me', { headers: bearer(accessToken) }), (data) => ({
       id: data.id,
       name: data.name,
       email: data.email,

@@ -75,12 +75,14 @@ les textes et les commits sont en français.
 
 ### Lire : un instantané, des vues
 
-`GET /v1/objectives` rend tout, à plat. `state/objectives.ts` le garde dans le cache de TanStack Query
+`GET /v2/bff/objective-tree` rend tout, en arbre ; la passerelle le met à plat (le parent d'une étape et le
+porteur d'un pas viennent de l'emboîtement). `state/objectives.ts` le garde dans le cache de TanStack Query
 sous la clé `['objectives', userId]` (chaque clé porte la personne : changer de compte ne montre jamais
 les données d'un autre), et chaque écran en tire sa vue par les règles du domaine
 (`objective-card.ts`, `objective-detail.ts`, `matrix.ts`). Un échec de lecture faute de réseau est
 retenté deux fois ; un refus du serveur ne l'est pas. Les données se relisent au retour au premier plan
-(`followAppFocus`) et en tirant l'écran.
+(`followAppFocus`), en tirant l'écran, après un ajout d'Akari et après un effacement refusé : jamais après un
+geste accepté (ADR 0007).
 
 Le chargement lui-même (`application/objectives/objectives-loader.ts`) prend place dans la file des
 écritures : il lit la base après les écritures déjà parties, garde les éléments encore optimistes, et
@@ -94,13 +96,15 @@ Les écritures ne passent pas par TanStack Query mais par `ObjectiveCommands`
 (`application/objectives/objective-commands.ts`), reprise des stores du client web :
 
 1. le geste change tout de suite la copie locale (un id temporaire pour ce qu'il crée) ;
-2. il s'écrit dans la `WriteQueue`, une écriture à la fois et dans l'ordre des gestes (Apex Brain
-   relit puis réenregistre un objectif entier : deux écritures simultanées pourraient s'écraser) ;
-3. il se réconcilie dès la réponse, **dans la file** : l'écriture suivante part de l'état qu'il a
-   laissé (id définitif retenu, ce que le serveur a accepté) ; puis il est annoncé aux lecteurs d'écran,
-   ou signalé dans la note d'Akari ;
-4. un pas coché, ajouté, modifié ou effacé, ou une étape effacée, peut changer ce qui est fait : les
-   objectifs sont relus (`onObjectivesChanged`), et l'étape et l'objectif affichent ce que le serveur en dit.
+2. il s'écrit dans la `WriteQueue` en commandes nommées de la v2 d'Apex Brain, une par champ changé
+   (modifier un objectif : `rename`, `clarify`, `set-deadline` ou `remove-deadline` ; un pas : `rename`,
+   `reprioritize`, `move` ; cocher : `complete` ou `reopen`), une écriture à la fois et dans l'ordre des
+   gestes ;
+3. il se réconcilie dès la réponse, **dans la file** : l'élément que la commande rend devient ce que le
+   serveur a accepté, et l'écriture suivante part de l'état qu'il a laissé (id définitif retenu) ; puis le
+   geste est annoncé une fois aux lecteurs d'écran, ou signalé une fois dans la note d'Akari ;
+4. rien n'est relu. Fait ou non fait, pour une étape ou un objectif, c'est le `done` que le serveur rend à la
+   lecture suivante : le client ne le calcule pas.
 
 Un geste fait sur un élément encore optimiste part avec l'id définitif : la création passe avant lui
 dans la file et retient la correspondance (`link`), que le geste retrouve (`resolve`). Le client web la
@@ -109,7 +113,7 @@ ne dépend de cet ordre.
 
 **Un retour en arrière rend ce que le serveur a accepté.** Tant que des gestes sont en route sur un pas
 ou un objectif, `PendingChanges` garde ce que le serveur en a : l'état d'avant le premier geste, plus les
-changements acceptés. Quand le dernier geste en route est réglé, l'élément montre cet état : cocher puis
+changements acceptés (l'élément que rend chaque commande acceptée). Quand le dernier geste en route est réglé, l'élément montre cet état : cocher puis
 décocher hors connexion ramène le pas tel qu'il était. Une étape dont la création n'aboutit pas
 disparaît avec les pas créés dessus ; un pas déjà enregistré qu'on y avait rangé revient à sa place.
 

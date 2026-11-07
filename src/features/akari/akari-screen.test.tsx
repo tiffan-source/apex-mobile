@@ -60,7 +60,8 @@ describe('Akari', () => {
 
     expect(await screen.findByText('Solfège', {}, { timeout: 3000 })).toBeOnTheScreen();
     await waitFor(
-      () => expect(app.objectives.calls.filter((call) => call === 'list').length).toBeGreaterThan(1),
+      () =>
+        expect(app.objectives.calls.filter((call) => call === 'getObjectiveTree').length).toBeGreaterThan(1),
       {
         timeout: 3000,
       },
