@@ -23,8 +23,10 @@ export default function AppLayout() {
       <Stack.Screen name="objectifs/[id]/index" />
       <Stack.Screen name="objectifs/[id]/akari" />
       <Stack.Screen name="objectifs/[id]/modifier" options={SHEET} />
+      <Stack.Screen name="objectifs/[id]/effacer" options={SHEET} />
       <Stack.Screen name="objectifs/[id]/nouvelle-etape" options={SHEET} />
       <Stack.Screen name="etapes/[id]/modifier" options={SHEET} />
+      <Stack.Screen name="etapes/[id]/effacer" options={SHEET} />
       <Stack.Screen name="etapes/[id]/nouveau-pas" options={SHEET} />
       <Stack.Screen name="pas/[id]/modifier" options={SHEET} />
       <Stack.Screen name="reglages" options={SHEET} />

@@ -99,8 +99,8 @@ Les écritures ne passent pas par TanStack Query mais par `ObjectiveCommands`
 3. il se réconcilie dès la réponse, **dans la file** : l'écriture suivante part de l'état qu'il a
    laissé (id définitif retenu, ce que le serveur a accepté) ; puis il est annoncé aux lecteurs d'écran,
    ou signalé dans la note d'Akari ;
-4. un pas coché, ajouté ou modifié peut changer ce qui est fait : les objectifs sont relus
-   (`onObjectivesChanged`), et l'étape et l'objectif affichent ce que le serveur en dit.
+4. un pas coché, ajouté, modifié ou effacé, ou une étape effacée, peut changer ce qui est fait : les
+   objectifs sont relus (`onObjectivesChanged`), et l'étape et l'objectif affichent ce que le serveur en dit.
 
 Un geste fait sur un élément encore optimiste part avec l'id définitif : la création passe avant lui
 dans la file et retient la correspondance (`link`), que le geste retrouve (`resolve`). Le client web la
@@ -112,6 +112,26 @@ ou un objectif, `PendingChanges` garde ce que le serveur en a : l'état d'avant 
 changements acceptés. Quand le dernier geste en route est réglé, l'élément montre cet état : cocher puis
 décocher hors connexion ramène le pas tel qu'il était. Une étape dont la création n'aboutit pas
 disparaît avec les pas créés dessus ; un pas déjà enregistré qu'on y avait rangé revient à sa place.
+
+**Effacer a trois poids** (maquette « Effacer », Empreinte 0.6). Un pas, une étape ou un objectif quitte
+l'écran tout de suite, avec ce qui en dépend (`eraseObjective`, `eraseTask` dans `domain/objectives/snapshot.ts`),
+puis la base (`DELETE`). Un effacement refusé remet tout à sa place, tel que le serveur l'a (`PendingChanges` : un
+pas coché juste avant, refusé lui aussi, revient décoché), et fait relire les objectifs : le serveur dit ce qui est
+vrai (un effacement fait avant que sa réponse se perde). Si le parent de ce qui revient attend lui-même d'être effacé
+(une étape effacée pendant qu'un de ses pas partait), ce qui revient lui est confié : il reviendra avec lui, ou
+partira avec lui, et seule la note du parent parle. Un élément que le serveur ne trouve plus est déjà effacé, et un
+élément qui n'est plus dans la copie ne l'est pas deux fois.
+
+Un pas ne part qu'à la fin de sa trace : `TaskTrace` (`application/objectives/task-trace.ts`) garde le pas effacé,
+une trace à la fois ; l'arête montre sa trace (`ETrace`, « Remettre ») à sa place, et la fin de la trace (son délai,
+l'écran quitté, l'application en arrière-plan) l'efface pour de bon. Tout nouvel effacement (un autre pas, une étape,
+un objectif) fait d'abord partir le pas qui attendait, et une trace remplacée ne renvoie rien en partant. La trace
+vit dans les services, et pas dans l'écran, parce que la feuille d'un pas efface aussi (« Effacer ce pas ») : l'arête
+dit quels pas elle montre (`showing`), et la feuille n'y laisse une trace que si l'arête, dessous, montre ce pas ;
+sinon (une feuille ouverte par un lien), le pas part tout de suite. L'écran de l'arête suit la trace au même niveau
+que les objectifs, pour qu'un pas qui part ne réapparaisse jamais le temps que la copie prévienne. Une étape part
+après une feuille d'alerte (`/etapes/:id/effacer`), un objectif depuis le pied de « Modifier l'objectif », son nom
+réécrit (`/objectifs/:id/effacer`) : l'arête qu'on quitte garde ce qu'elle montrait le temps de se refermer.
 
 **Une session fermée ferme sa file.** Ce qui attend encore n'est jamais envoyé avec le jeton d'une autre
 personne (`WriteQueue.close()`), et une réponse arrivée après la fermeture ne réconcilie rien et ne dit

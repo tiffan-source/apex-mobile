@@ -123,6 +123,16 @@ export function toObjectiveDetail(
   };
 }
 
+/**
+ * L'étape quand un de ses pas part (sa trace est à l'écran, à sa place) : il ne compte plus dans ce qu'elle a de
+ * fait et d'à faire. Ses pas restent tous dans la liste, pour que la trace garde la place du pas.
+ */
+export function stageWithout(stage: StageView, leaving: string | null): StageView {
+  if (leaving === null || !stage.tasks.some((task) => task.id === leaving)) return stage;
+  const progress = taskProgress(stage.tasks.filter((task) => task.id !== leaving));
+  return { ...stage, progress, detail: stageDetail(progress) };
+}
+
 /** Une étape à choisir (la feuille d'un pas). */
 export type StageOption = { readonly id: string; readonly label: string };
 

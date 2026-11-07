@@ -18,8 +18,12 @@ export const routes = {
       ? { pathname: '/objectifs/[id]/akari', params: { id: objectiveId, etape: stageId } }
       : `/objectifs/${objectiveId}/akari`,
   editObjective: (objectiveId: string): Href => `/objectifs/${objectiveId}/modifier`,
+  /** Confirmer l'effacement d'un objectif : on réécrit son nom. */
+  eraseObjective: (objectiveId: string): Href => `/objectifs/${objectiveId}/effacer`,
   addStage: (objectiveId: string): Href => `/objectifs/${objectiveId}/nouvelle-etape`,
   editStage: (stageId: string): Href => `/etapes/${stageId}/modifier`,
+  /** Valider l'effacement d'une étape. */
+  eraseStage: (stageId: string): Href => `/etapes/${stageId}/effacer`,
   /** Ajouter un pas, l'étape proposée par défaut étant celle-ci. */
   addTask: (stageId: string): Href => `/etapes/${stageId}/nouveau-pas`,
   /** Modifier un pas ; `shownStageId` est l'étape où il est affiché (rien pour un pas sans étape). */

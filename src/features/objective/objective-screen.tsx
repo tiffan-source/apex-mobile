@@ -1,10 +1,11 @@
-import { useRouter } from 'expo-router';
-import { useRef, useState, type RefObject } from 'react';
+import { useIsFocused, useRouter } from 'expo-router';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { View, type ScrollViewInstance, type ViewInstance } from 'react-native';
 import {
   EArete,
   EBouton,
   EFilAriane,
+  EGlissable,
   EIcone,
   ELegendeArete,
   EListe,
@@ -12,14 +13,18 @@ import {
   EPas,
   ETache,
   ETexte,
+  ETrace,
   type EtapeAreteIdentifiee,
   creerStyles,
+  libelleEffacer,
 } from '@empreinte-studio/react-native';
+import type { TaskTrace } from '@/application/objectives/task-trace';
 import { TITRES_QUADRANTS } from '@/domain/objectives/eisenhower';
 import {
   foldedDoneStageId,
   openStageId,
   stageName,
+  stageWithout,
   type ObjectiveDetail,
   type StageTaskView,
   type StageView,
@@ -27,11 +32,11 @@ import {
 import { isTemporaryId } from '@/domain/objectives/snapshot';
 import { CRUMB_TITLE_MAX, shortTitle } from '@/domain/shared/titles';
 import { useAnnouncements, useReport } from '@/state/announcements';
-import { useObjectiveCommands, useObjectiveDetail } from '@/state/objectives';
+import { useObjectiveCommands, useObjectiveDetail, useTaskTrace } from '@/state/objectives';
 import { useToday } from '@/state/today';
 import { Ecran, amenerALEcran } from '@/ui/ecran';
 import { EnTete } from '@/ui/en-tete';
-import { pas } from '@/ui/fondations';
+import { pas, traits } from '@/ui/fondations';
 import { EnRetrait, MARGE_PANNEAU, Panneau, Trame } from '@/ui/panneau';
 import { ReportNote } from '../shell/report-note';
 import { routes } from '../shell/routes';
@@ -39,7 +44,7 @@ import { LoadingLine, NotFound, NotLoaded } from '../shell/screen-states';
 import { SHELL_TEXTS } from '../shell/shell.texts';
 import { OBJECTIVE_TEXTS as T } from './objective.texts';
 
-const useStyles = creerStyles(() => ({
+const useStyles = creerStyles(({ couleurs }) => ({
   titreArete: {
     gap: pas['pas-2'],
   },
@@ -54,45 +59,101 @@ const useStyles = creerStyles(() => ({
   invitation: {
     gap: pas['pas-3'],
   },
+  // La liste laisse voir le filet du panneau de chaque côté : ses lignes sont opaques (la bande d'une ligne glissée
+  // passe dessous, la trace a son fond creux), comme dans la maquette.
+  liste: {
+    paddingHorizontal: traits['trait-fin'],
+  },
+  // Les pas gardent la marge du panneau.
   tache: {
-    paddingHorizontal: MARGE_PANNEAU.laterale,
+    paddingHorizontal: MARGE_PANNEAU.laterale - traits['trait-fin'],
+  },
+  trace: {
+    paddingLeft: MARGE_PANNEAU.laterale - traits['trait-fin'],
+  },
+  // La sortie de l'étape, sous un filet, d'un bord à l'autre du panneau (maquette « Effacer », mobile).
+  sortie: {
+    paddingTop: pas['pas-2'],
+    borderTopWidth: traits['trait-fin'],
+    borderTopColor: couleurs.trame,
+  },
+  // Le mot s'aligne sur la marge du panneau.
+  effacer: {
+    paddingHorizontal: 0,
   },
 }));
 
-/** Les pas d'une étape (ou sans étape), à cocher sur place, chacun avec « Modifier ». */
+/**
+ * Effacer un pas (maquette « Effacer », mobile) : la ligne glisse vers la gauche, ou « Effacer » dans les actions de
+ * VoiceOver et TalkBack ; sa trace prend sa place le temps de le remettre. Un pas qui n'est pas encore enregistré ne
+ * s'efface pas.
+ */
+type TaskErasing = {
+  /** Le pas dont la trace est à l'écran. */
+  readonly erasing: string | null;
+  /** Le pas qui vient d'être remis à sa place : le lecteur d'écran s'y repose. */
+  readonly restored: string | null;
+  readonly onErase: (task: StageTaskView) => void;
+  readonly onPutBack: (task: StageTaskView) => void;
+  /** La trace est finie : le pas part pour de bon. */
+  readonly onGone: (task: StageTaskView) => void;
+};
+
+/** Les pas d'une étape (ou sans étape), à cocher sur place, chacun avec « Modifier », à glisser pour l'effacer. */
 function TaskRows({
   tasks,
   onToggle,
   onEdit,
+  erase,
 }: {
   readonly tasks: readonly StageTaskView[];
   readonly onToggle: (taskId: string, done: boolean) => void;
   readonly onEdit: (task: StageTaskView) => void;
+  readonly erase: TaskErasing;
 }) {
   const styles = useStyles();
   return (
-    <EListe nue>
-      {tasks.map((task) => (
-        <ETache
-          key={task.id}
-          titre={task.title}
-          {...(task.done ? {} : { meta: TITRES_QUADRANTS[task.quadrant] })}
-          fait={task.done}
-          onFaitChange={(done) => onToggle(task.id, done)}
-          style={styles.tache}
-          testID={`pas-${task.id}`}
-          actions={
-            <EBouton
-              variante="nu"
-              petit
-              aria-label={T.editTaskLabel(task.title)}
-              onPress={() => onEdit(task)}
-            >
-              {T.edit}
-            </EBouton>
-          }
-        />
-      ))}
+    <EListe nue style={styles.liste}>
+      {tasks.map((task) =>
+        task.id === erase.erasing ? (
+          <ETrace
+            key={`trace-${task.id}`}
+            titre={task.title}
+            onRemettre={() => erase.onPutBack(task)}
+            onExpiree={() => erase.onGone(task)}
+            style={styles.trace}
+            testID={`trace-${task.id}`}
+          />
+        ) : (
+          <EGlissable
+            key={task.id}
+            libelleAccessible={libelleEffacer(task.title)}
+            desactive={isTemporaryId(task.id)}
+            onAction={() => erase.onErase(task)}
+          >
+            <ETache
+              titre={task.title}
+              {...(task.done ? {} : { meta: TITRES_QUADRANTS[task.quadrant] })}
+              fait={task.done}
+              onFaitChange={(done) => onToggle(task.id, done)}
+              {...(isTemporaryId(task.id) ? {} : { onEffacer: () => erase.onErase(task) })}
+              focaliser={task.id === erase.restored}
+              style={styles.tache}
+              testID={`pas-${task.id}`}
+              actions={
+                <EBouton
+                  variante="nu"
+                  petit
+                  aria-label={T.editTaskLabel(task.title)}
+                  onPress={() => onEdit(task)}
+                >
+                  {T.edit}
+                </EBouton>
+              }
+            />
+          </EGlissable>
+        ),
+      )}
     </EListe>
   );
 }
@@ -100,17 +161,22 @@ function TaskRows({
 /** L'étape ouverte à côté de l'arête : son état, son nom, ses pas, et ce qu'on peut y faire. */
 function StagePanel({
   objectiveId,
-  stage,
+  stage: shownStage,
   onToggle,
+  erase,
   panel,
 }: {
   readonly objectiveId: string;
   readonly stage: StageView;
   readonly onToggle: (taskId: string, done: boolean) => void;
+  readonly erase: TaskErasing;
   readonly panel: RefObject<ViewInstance | null>;
 }) {
   const styles = useStyles();
   const router = useRouter();
+  // Le pas dont la trace est à l'écran ne compte plus.
+  const stage = stageWithout(shownStage, erase.erasing);
+  const counted = stage.progress.done + stage.progress.toDo;
   return (
     <View ref={panel} collapsable={false}>
       <Panneau bordPerdu testID="etape-ouverte">
@@ -131,7 +197,7 @@ function StagePanel({
               {stage.description}
             </ETexte>
           ) : null}
-          {stage.tasks.length > 0 ? (
+          {counted > 0 ? (
             <EPas
               faits={stage.progress.done}
               aFaire={stage.progress.toDo}
@@ -150,6 +216,7 @@ function StagePanel({
             onEdit={(task) =>
               router.push(routes.editTask(task.id, isTemporaryId(stage.id) ? null : stage.id))
             }
+            erase={erase}
           />
         ) : null}
         <EnRetrait style={styles.actions}>
@@ -179,6 +246,18 @@ function StagePanel({
             {T.editStage}
           </EBouton>
         </EnRetrait>
+        <EnRetrait style={styles.sortie}>
+          <EBouton
+            variante="nu"
+            petit
+            doux
+            disabled={isTemporaryId(stage.id)}
+            onPress={() => router.push(routes.eraseStage(stage.id))}
+            style={styles.effacer}
+          >
+            {T.eraseStage}
+          </EBouton>
+        </EnRetrait>
       </Panneau>
     </View>
   );
@@ -192,9 +271,19 @@ function StagePanel({
 export function ObjectiveScreen({ objectiveId }: { readonly objectiveId: string }) {
   const router = useRouter();
   const today = useToday();
-  const { detail, notFound, failure, refreshing, refresh } = useObjectiveDetail(objectiveId, today);
+  const focused = useIsFocused();
+  const { detail: current, notFound, failure, refreshing, refresh } = useObjectiveDetail(objectiveId, today);
   const { report } = useReport();
+  // Suivie ici, avec les objectifs : quand la trace change, l'arête relit aussi la copie, et le pas qui part pour de
+  // bon ne réapparaît pas le temps que la copie prévienne.
+  const { erasing, trace } = useTaskTrace();
   const scroller = useRef<ScrollViewInstance | null>(null);
+
+  // Tant qu'une feuille la couvre, ou qu'on la quitte, l'arête garde ce qu'elle montrait : l'objectif effacé depuis
+  // sa feuille part pendant que l'écran se referme, sans y dire « introuvable ».
+  const [shown, setShown] = useState(current);
+  if (current && current !== shown) setShown(current);
+  const detail = current ?? (focused ? undefined : shown);
 
   return (
     <Ecran
@@ -204,7 +293,13 @@ export function ObjectiveScreen({ objectiveId }: { readonly objectiveId: string 
       testID="ecran-arete"
     >
       {detail ? (
-        <ObjectiveContent detail={detail} hasReport={!!report} scroller={scroller} />
+        <ObjectiveContent
+          detail={detail}
+          hasReport={!!report}
+          erasing={erasing}
+          trace={trace}
+          scroller={scroller}
+        />
       ) : (
         <>
           <EFilAriane
@@ -228,10 +323,15 @@ export function ObjectiveScreen({ objectiveId }: { readonly objectiveId: string 
 function ObjectiveContent({
   detail,
   hasReport,
+  erasing,
+  trace,
   scroller,
 }: {
   readonly detail: ObjectiveDetail;
   readonly hasReport: boolean;
+  /** Le pas dont la trace est à l'écran. */
+  readonly erasing: string | null;
+  readonly trace: TaskTrace;
   readonly scroller: RefObject<ScrollViewInstance | null>;
 }) {
   const styles = useStyles();
@@ -248,6 +348,28 @@ function ObjectiveContent({
   if (openId !== shownStageId) setShownStageId(openId);
   const stage = stages.find((item) => item.id === openId);
 
+  // L'arête dit quels pas elle montre : la feuille d'un pas sait ainsi si sa trace pourra y prendre sa place.
+  const shownTaskIds = [...(stage?.tasks ?? []), ...detail.tasksWithoutStage]
+    .map((task) => task.id)
+    .join('\n');
+  useEffect(() => trace.showing(shownTaskIds ? shownTaskIds.split('\n') : []), [trace, shownTaskIds]);
+
+  // Le pas remis à sa place par sa trace : le lecteur d'écran s'y repose quand il revient.
+  const [restored, setRestored] = useState<string | null>(null);
+  const erase: TaskErasing = {
+    erasing,
+    restored,
+    onErase: (task) => {
+      setRestored(null);
+      trace.start(task.id);
+    },
+    onPutBack: (task) => {
+      setRestored(task.id);
+      trace.putBack(task.id);
+    },
+    onGone: (task) => trace.expire(task.id),
+  };
+
   const toggle = (taskId: string, done: boolean) => void commands.setTaskDone(taskId, done);
 
   const chooseStage = (etape: EtapeAreteIdentifiee) => {
@@ -255,6 +377,7 @@ function ObjectiveContent({
     const chosen = stages.find((item) => item.id === id);
     if (!chosen) return;
     setShownStageId(chosen.id);
+    setRestored(null);
     announcements.announce(T.stageChosen(chosen.done, stageName(chosen.title)));
     requestAnimationFrame(() => amenerALEcran(scroller, panel));
   };
@@ -311,7 +434,13 @@ function ObjectiveContent({
             />
           </Panneau>
           {stage ? (
-            <StagePanel objectiveId={objective.id} stage={stage} onToggle={toggle} panel={panel} />
+            <StagePanel
+              objectiveId={objective.id}
+              stage={stage}
+              onToggle={toggle}
+              erase={erase}
+              panel={panel}
+            />
           ) : (
             <Panneau>
               <ETexte variante="detail" couleur="encre-douce">
@@ -366,6 +495,7 @@ function ObjectiveContent({
             tasks={detail.tasksWithoutStage}
             onToggle={toggle}
             onEdit={(task) => router.push(routes.editTask(task.id, null))}
+            erase={erase}
           />
         </Panneau>
       ) : null}

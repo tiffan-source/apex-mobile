@@ -11,9 +11,13 @@ import {
 import type { Objective, ObjectivesSnapshot, Task } from './objective';
 import {
   addTask,
+  eraseObjective,
+  eraseTask,
+  erasedParents,
   isTemporaryId,
   keepOptimistic,
   removeObjective,
+  restoreErased,
   swapObjectiveId,
   swapTaskId,
 } from './snapshot';
@@ -96,6 +100,60 @@ describe('la copie optimiste', () => {
     // Son propre geste, refusé à son tour (l'étape n'existe pas), le ramène à sa place.
     const before = snapshot([objective('o'), objective('temp-id-e', 'o')], [task('p1', 'temp-id-e')]);
     expect(removeObjective(before, 'temp-id-e').tasks.map((item) => item.id)).toEqual(['p1']);
+  });
+});
+
+describe('effacer dans la copie', () => {
+  const ids = (items: readonly { readonly id: string }[]) => items.map((item) => item.id);
+  const plan = () =>
+    snapshot(
+      [objective('o'), objective('e1', 'o'), objective('s', 'e1'), objective('e2', 'o'), objective('x')],
+      [task('a', 'e1'), task('b', 's'), task('c', 'e2'), task('d', 'o')],
+    );
+
+  it('un objectif part avec ses descendants et tous leurs pas, chacun avec sa place', () => {
+    const { snapshot: after, removed } = eraseObjective(plan(), 'e1');
+    expect(ids(after.objectives)).toEqual(['o', 'e2', 'x']);
+    expect(ids(after.tasks)).toEqual(['c', 'd']);
+    expect(removed.objectives.map(({ index, item }) => [index, item.id])).toEqual([
+      [1, 'e1'],
+      [2, 's'],
+    ]);
+    expect(removed.tasks.map(({ index, item }) => [index, item.id])).toEqual([
+      [0, 'a'],
+      [1, 'b'],
+    ]);
+  });
+
+  it('un id inconnu ne retire rien', () => {
+    expect(eraseObjective(plan(), 'inconnu').removed).toEqual({ objectives: [], tasks: [] });
+    expect(eraseTask(plan(), 'inconnu').snapshot.tasks).toHaveLength(4);
+  });
+
+  it('ce qui revient retrouve sa place, sans doublon', () => {
+    const { snapshot: after, removed } = eraseObjective(plan(), 'e1');
+    const back = restoreErased(after, removed);
+    expect(back && ids(back.objectives)).toEqual(['o', 'e1', 's', 'e2', 'x']);
+    expect(back && ids(back.tasks)).toEqual(['a', 'b', 'c', 'd']);
+    // Une relecture l'a déjà rendu : il n'est pas remis deux fois.
+    const again = back && restoreErased(back, removed);
+    expect(again && ids(again.objectives)).toEqual(['o', 'e1', 's', 'e2', 'x']);
+  });
+
+  it('ce qui a été effacé reviendrait chez son parent : l’objectif d’une étape, l’étape d’un pas', () => {
+    expect(erasedParents(eraseObjective(plan(), 'e1').removed)).toEqual(['o']);
+    expect(erasedParents(eraseObjective(plan(), 'o').removed)).toEqual([]);
+    expect(erasedParents(eraseTask(plan(), 'c').removed)).toEqual(['e2']);
+  });
+
+  it('rien ne revient quand son parent n’est plus là', () => {
+    const { snapshot: withoutStage, removed } = eraseObjective(plan(), 'e1');
+    expect(restoreErased(eraseObjective(withoutStage, 'o').snapshot, removed)).toBeNull();
+
+    const { snapshot: withoutTask, removed: task } = eraseTask(plan(), 'c');
+    expect(restoreErased(eraseObjective(withoutTask, 'e2').snapshot, task)).toBeNull();
+    const back = restoreErased(withoutTask, task);
+    expect(back && ids(back.tasks)).toEqual(['a', 'b', 'c', 'd']);
   });
 });
 

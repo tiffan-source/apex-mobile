@@ -2,6 +2,7 @@ import type { AkariWritesWatcher } from './akari/akari-writes';
 import type { AnnouncementCenter } from './announcements/announcement-center';
 import type { ObjectiveCommands } from './objectives/objective-commands';
 import type { ObjectivesLoader } from './objectives/objectives-loader';
+import type { TaskTrace } from './objectives/task-trace';
 import type { AssistantGateway } from './ports/assistant-gateway';
 import type { PreferencesStore } from './ports/platform';
 import type { SessionManager } from './session/session-manager';
@@ -15,6 +16,8 @@ export type AppServices = {
   readonly objectives: {
     readonly loader: ObjectivesLoader;
     readonly commands: ObjectiveCommands;
+    /** Le pas effacé le temps de sa trace, avant qu'il parte pour de bon. */
+    readonly trace: TaskTrace;
   };
   readonly assistant: AssistantGateway;
   readonly akariWrites: AkariWritesWatcher;

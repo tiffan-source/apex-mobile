@@ -32,4 +32,11 @@ export interface ObjectivesGateway {
   editTask(taskId: string, input: EditTaskInput): Promise<Result<void>>;
   /** `PUT /v1/tasks/{id}/done` */
   setTaskDone(taskId: string, done: boolean): Promise<Result<void>>;
+  /**
+   * `DELETE /v1/objectives/{id}` : un objectif ou une étape, avec tout ce qui en dépend (ses étapes, leurs pas, et,
+   * pour un objectif, sa conversation avec Akari). « Introuvable » (`OBJECTIVE_NOT_FOUND`) s'il n'existe plus.
+   */
+  deleteObjective(objectiveId: string): Promise<Result<void>>;
+  /** `DELETE /v1/tasks/{id}` : « introuvable » (`TASK_NOT_FOUND`) s'il n'existe plus. */
+  deleteTask(taskId: string): Promise<Result<void>>;
 }

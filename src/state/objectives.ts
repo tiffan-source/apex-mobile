@@ -1,5 +1,5 @@
 import { useQuery, type QueryClient, type QueryKey } from '@tanstack/react-query';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import { toObjectiveCards, type ObjectiveCard } from '@/domain/objectives/objective-card';
 import {
   stageOptions,
@@ -20,6 +20,7 @@ import { failureReport } from '@/domain/objectives/messages';
 import { CLIENT_ERRORS, FailureError, UNKNOWN_ERROR, unwrap, type Failure } from '@/domain/shared/result';
 import type { ObjectivesCache } from '@/application/objectives/objectives-cache';
 import type { ObjectiveCommands } from '@/application/objectives/objective-commands';
+import type { TaskTrace } from '@/application/objectives/task-trace';
 import { queryKeys } from './query-keys';
 import { useServices } from './services';
 import { useCurrentUser } from './session';
@@ -164,4 +165,11 @@ export function useStageOptions(objectiveId: string): readonly StageOption[] {
 /** Les gestes sur les objectifs : optimistes, écrits dans la file, annoncés ou signalés. */
 export function useObjectiveCommands(): ObjectiveCommands {
   return useServices().objectives.commands;
+}
+
+/** Le pas effacé le temps de sa trace (ou null), et de quoi effacer un pas, le remettre ou le laisser partir. */
+export function useTaskTrace(): { readonly erasing: string | null; readonly trace: TaskTrace } {
+  const { trace } = useServices().objectives;
+  const erasing = useSyncExternalStore(trace.erasing$.subscribe, () => trace.erasing$.get());
+  return { erasing, trace };
 }
