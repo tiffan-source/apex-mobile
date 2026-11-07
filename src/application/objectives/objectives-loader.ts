@@ -31,7 +31,7 @@ export class ObjectivesLoader {
     const { writes, gateway, cache } = this.deps;
     const mark = writes.enqueued;
     const result = await writes
-      .read(() => gateway.list())
+      .read(() => gateway.getObjectiveTree())
       .catch((error: unknown) => {
         // La session a pris fin pendant que la lecture attendait son tour.
         if (error instanceof SessionClosedError)

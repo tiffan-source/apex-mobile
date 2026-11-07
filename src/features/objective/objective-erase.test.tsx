@@ -11,7 +11,7 @@ import { typeset } from '@/domain/shared/typography';
 
 function semiMarathon(app: TestApp) {
   app.objectives.seedObjective({ id: 'o1', title: 'Courir un semi-marathon', why: 'Tenir six mois' });
-  app.objectives.seedObjective({ id: 's1', title: 'Bases', parentId: 'o1' });
+  app.objectives.seedObjective({ id: 's1', title: 'Bases', parentId: 'o1', done: true });
   app.objectives.seedObjective({ id: 's2', title: 'Endurance', parentId: 'o1' });
   app.objectives.seedObjective({ id: 's3', title: 'Fractionné', parentId: 'o1' });
   app.objectives.seedTask({ id: 't1', title: 'Marcher 20 minutes', objectiveId: 's1', done: true });
@@ -68,8 +68,9 @@ describe('Effacer un pas', () => {
     await waitFor(() => expect(taskIds(app)).not.toContain('t3'));
     expect(screen.queryByText(tracePhrase('Sortie de 45 minutes'))).not.toBeOnTheScreen();
     expect(screen.queryByRole('checkbox', { name: 'Sortie de 45 minutes' })).not.toBeOnTheScreen();
-    // Son étape n'a plus que des pas faits : le serveur la dit faite à la relecture.
-    await waitFor(() => expect(screen.getByText('Étape · faite')).toBeOnTheScreen());
+    // Son étape n'a plus que des pas faits, mais rien n'est relu : elle reste ce que le serveur a dit.
+    expect(screen.getByText('Étape · à faire')).toBeOnTheScreen();
+    expect(app.objectives.calls.filter((call) => call === 'getObjectiveTree')).toHaveLength(1);
   });
 
   it('le pas qui part pour de bon ne réapparaît pas le temps que la copie prévienne l’écran', async () => {
@@ -213,7 +214,7 @@ describe('Effacer une étape', () => {
         'deleteObjective',
       ]),
     );
-    // L'étape revient (sans ce pas, elle est faite : le serveur le dit).
+    // L'étape revient, telle que le serveur la dit à la relecture qui suit le refus.
     expect(await screen.findByRole('button', { name: /^Endurance : / })).toBeOnTheScreen();
     expect(screen.getByText("L'arête · 3 étapes")).toBeOnTheScreen();
     expect(taskIds(app)).not.toContain('t3');

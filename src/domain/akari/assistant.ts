@@ -48,7 +48,7 @@ export type ConversationMessage = {
   readonly createdAt: string;
 };
 
-/** L'état d'un workflow, tel que `GET /v1/objectives/{id}/assistant` le rend. */
+/** L'état d'un workflow, tel que `GET /v2/objectives/{id}/assistant` le rend. */
 export type WorkflowState = {
   readonly objectiveId: string;
   readonly status: WorkflowStatus;

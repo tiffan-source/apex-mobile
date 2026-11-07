@@ -14,13 +14,13 @@ export type Conversation = {
 };
 
 export interface AssistantGateway {
-  /** `GET /v1/objectives/{id}/conversation` : seul un objectif racine a une conversation. */
+  /** `GET /v2/objectives/{id}/conversation` : seul un objectif racine a une conversation. */
   getConversation(objectiveId: string): Promise<Result<Conversation>>;
-  /** `GET /v1/objectives/{id}/assistant` : l'état du workflow ; un tour interrompu reprend. */
+  /** `GET /v2/objectives/{id}/assistant` : l'état du workflow ; un tour interrompu reprend. */
   getState(objectiveId: string): Promise<Result<WorkflowState>>;
-  /** `POST /v1/objectives/{id}/assistant/messages` : le tour démarre, la réponse arrive par l'état. */
+  /** `POST /v2/objectives/{id}/assistant/messages` : le tour démarre, la réponse arrive par l'état. */
   sendMessage(objectiveId: string, message: string): Promise<Result<WorkflowState>>;
-  /** `POST /v1/objectives/{id}/assistant/permission` : accepter ou refuser l'outil qui attend. */
+  /** `POST /v2/objectives/{id}/assistant/permission` : accepter ou refuser l'outil qui attend. */
   respondToPermission(
     objectiveId: string,
     granted: boolean,

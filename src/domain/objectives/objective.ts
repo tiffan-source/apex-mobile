@@ -1,6 +1,6 @@
 /*
- * Les objectifs et les pas tels que le client les connaît : la copie, à plat, de ce que rend
- * `GET /v1/objectives`, plus les éléments optimistes en cours d'enregistrement.
+ * Les objectifs et les pas tels que le client les connaît : l'arbre que rend `GET /v2/bff/objective-tree`,
+ * mis à plat, plus les éléments optimistes en cours d'enregistrement.
  *
  * Vocabulaire (cahier de migration d'Apex, § 4) : un objectif est un objectif racine (`parentId === null`) ;
  * une étape est un sous-objectif direct d'un objectif ; un pas est une tâche. L'interface s'arrête à trois

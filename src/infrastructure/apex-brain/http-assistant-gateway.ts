@@ -5,7 +5,7 @@ import { mapResult, type ApexClient } from '../http/apex-client';
 import type { paths } from './schema';
 
 type WorkflowStateDto =
-  paths['/v1/objectives/{objectiveId}/assistant']['get']['responses'][200]['content']['application/json'];
+  paths['/v2/objectives/{objectiveId}/assistant']['get']['responses'][200]['content']['application/json'];
 
 /** L'état d'un workflow tel que le domaine le lit. */
 function toWorkflowState(dto: WorkflowStateDto): WorkflowState {
@@ -45,7 +45,7 @@ export class HttpAssistantGateway implements AssistantGateway {
 
   getConversation(objectiveId: string): Promise<Result<Conversation>> {
     return mapResult(
-      this.client.GET('/v1/objectives/{objectiveId}/conversation', { params: { path: { objectiveId } } }),
+      this.client.GET('/v2/objectives/{objectiveId}/conversation', { params: { path: { objectiveId } } }),
       (data) => ({
         id: data.id,
         messages: data.messages.map((message) => ({
@@ -60,14 +60,14 @@ export class HttpAssistantGateway implements AssistantGateway {
 
   getState(objectiveId: string): Promise<Result<WorkflowState>> {
     return mapResult(
-      this.client.GET('/v1/objectives/{objectiveId}/assistant', { params: { path: { objectiveId } } }),
+      this.client.GET('/v2/objectives/{objectiveId}/assistant', { params: { path: { objectiveId } } }),
       toWorkflowState,
     );
   }
 
   sendMessage(objectiveId: string, message: string): Promise<Result<WorkflowState>> {
     return mapResult(
-      this.client.POST('/v1/objectives/{objectiveId}/assistant/messages', {
+      this.client.POST('/v2/objectives/{objectiveId}/assistant/messages', {
         params: { path: { objectiveId } },
         body: { message },
       }),
@@ -81,7 +81,7 @@ export class HttpAssistantGateway implements AssistantGateway {
     toolCallId?: string,
   ): Promise<Result<WorkflowState>> {
     return mapResult(
-      this.client.POST('/v1/objectives/{objectiveId}/assistant/permission', {
+      this.client.POST('/v2/objectives/{objectiveId}/assistant/permission', {
         params: { path: { objectiveId } },
         body: { granted, ...(toolCallId ? { toolCallId } : {}) },
       }),

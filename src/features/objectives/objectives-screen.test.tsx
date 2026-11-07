@@ -25,7 +25,7 @@ describe('Objectifs', () => {
 
   it("range dans « Accomplis » l'objectif que le serveur dit fait", async () => {
     const app = createTestApp();
-    app.objectives.seedObjective({ id: 'o1', title: 'Apprendre le piano' });
+    app.objectives.seedObjective({ id: 'o1', title: 'Apprendre le piano', done: true });
     app.objectives.seedTask({ id: 't1', title: 'Gammes', objectiveId: 'o1', done: true });
 
     await renderApp(app, '/');
@@ -43,7 +43,7 @@ describe('Objectifs', () => {
 
   it("signale un chargement qui n'aboutit pas, et le range avec « Compris »", async () => {
     const app = createTestApp();
-    app.objectives.failNext('list', 'NETWORK_UNREACHABLE');
+    app.objectives.failNext('getObjectiveTree', 'NETWORK_UNREACHABLE');
     await renderApp(app, '/');
     expect(
       await screen.findByText("Je n'ai pas pu charger tes objectifs. Vérifie ta connexion, puis réessaie."),

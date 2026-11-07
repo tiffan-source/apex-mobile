@@ -26,7 +26,7 @@ import { useServices } from './services';
 import { useCurrentUser } from './session';
 
 /*
- * Les objectifs de la personne connectée : une seule lecture (`GET /v1/objectives`, à plat), gardée dans le
+ * Les objectifs de la personne connectée : une seule lecture (`GET /v2/bff/objective-tree`, mise à plat), gardée dans le
  * cache de TanStack Query, d'où chaque écran tire sa vue (cartes, arête, matrice) par les règles du domaine.
  */
 
