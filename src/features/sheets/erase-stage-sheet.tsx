@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { EFeuilleConfirmation, EPas, ETexte } from '@empreinte-studio/react-native';
 import { stageErasure, type StageErasure } from '@/domain/objectives/erasure';
-import { useObjectiveCommands, useObjectives, useTaskTrace } from '@/state/objectives';
+import { useEraser, useObjectives } from '@/state/objectives';
 import { GoneSheet, LoadingSheet, useCloseSheet } from './sheet-frame';
 import { SHEETS_TEXTS } from './sheets.texts';
 
@@ -14,7 +14,7 @@ const T = SHEETS_TEXTS.eraseStage;
  */
 export function EraseStageSheet({ stageId }: { readonly stageId: string }) {
   const { snapshot, loaded } = useObjectives();
-  const { erasing } = useTaskTrace();
+  const { erasing } = useEraser();
   const erasure = useMemo(
     () => stageErasure(stageId, snapshot.objectives, snapshot.tasks, erasing),
     [stageId, snapshot, erasing],
@@ -36,17 +36,15 @@ function EraseStageConfirmation({
   readonly erasure: StageErasure;
 }) {
   const close = useCloseSheet();
-  const commands = useObjectiveCommands();
-  const { trace } = useTaskTrace();
+  const { eraser } = useEraser();
   const [erased, setErased] = useState(false);
 
-  // Le pas dont la trace attendait part d'abord, pour de bon : il ne reviendra pas avec l'étape si elle revient.
+  // L'`Eraser` fait d'abord partir le pas en attente, pour de bon : il ne reviendra pas avec l'étape si elle revient.
   const erase = () => {
     if (erased) return;
     setErased(true);
     close();
-    trace.flush();
-    void commands.deleteObjective(stageId);
+    void eraser.eraseObjective(stageId);
   };
 
   return (

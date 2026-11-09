@@ -81,7 +81,7 @@ describe('Effacer un pas', () => {
     await eraseFromActions('Sortie de 45 minutes');
     await screen.findByText(tracePhrase('Sortie de 45 minutes'));
     // La fin de la trace, sans laisser passer l'horloge : la copie n'a pas encore prévenu ceux qui la lisent.
-    await act(async () => app.services.objectives.trace.expire('t3'));
+    await act(async () => app.services.objectives.eraser.expire('t3'));
     expect(screen.queryByRole('checkbox', { name: 'Sortie de 45 minutes' })).not.toBeOnTheScreen();
     expect(screen.queryByText(tracePhrase('Sortie de 45 minutes'))).not.toBeOnTheScreen();
   });
@@ -141,7 +141,24 @@ describe('Effacer un pas', () => {
 
     await waitFor(() => expect(taskIds(app)).not.toContain('t3'));
     expect(router.getPathname()).toBe('/');
-    expect(app.services.objectives.trace.erasing$.get()).toBeNull();
+    expect(app.services.objectives.eraser.erasing$.get()).toBeNull();
+  });
+
+  it('effacé tout de suite depuis sa feuille, il fait d’abord partir le pas dont la trace attendait', async () => {
+    const app = createTestApp();
+    semiMarathon(app);
+    await openEndurance(app);
+    await eraseFromActions('Sortie de 45 minutes');
+    await screen.findByText(tracePhrase('Sortie de 45 minutes'));
+
+    // « Marcher 20 minutes » est dans Bases : l'arête ne le montre pas, sa feuille l'efface tout de suite.
+    await act(async () => navigation.push('/pas/t1/modifier'));
+    const sheet = await screen.findByTestId('feuille-pas');
+    await fireEvent.press(within(sheet).getByRole('button', { name: 'Effacer ce pas' }));
+
+    await waitFor(() => expect(taskIds(app)).not.toContain('t1'));
+    expect(taskIds(app)).not.toContain('t3');
+    expect(screen.queryByText(tracePhrase('Sortie de 45 minutes'))).not.toBeOnTheScreen();
   });
 
   it('un pas qui n’est pas effacé revient à sa place, et la note le dit', async () => {

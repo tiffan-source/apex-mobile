@@ -19,8 +19,8 @@ import { isRootObjective } from '@/domain/objectives/tree';
 import { failureReport } from '@/domain/objectives/messages';
 import { CLIENT_ERRORS, FailureError, UNKNOWN_ERROR, unwrap, type Failure } from '@/domain/shared/result';
 import type { ObjectivesCache } from '@/application/objectives/objectives-cache';
+import type { Eraser } from '@/application/objectives/eraser';
 import type { ObjectiveCommands } from '@/application/objectives/objective-commands';
-import type { TaskTrace } from '@/application/objectives/task-trace';
 import { queryKeys } from './query-keys';
 import { useServices } from './services';
 import { useCurrentUser } from './session';
@@ -162,14 +162,19 @@ export function useStageOptions(objectiveId: string): readonly StageOption[] {
   return useMemo(() => stageOptions(objectiveId, snapshot.objectives), [snapshot.objectives, objectiveId]);
 }
 
-/** Les gestes sur les objectifs : optimistes, écrits dans la file, annoncés ou signalés. */
-export function useObjectiveCommands(): ObjectiveCommands {
+/**
+ * Les gestes sur les objectifs : optimistes, écrits dans la file, annoncés ou signalés. Effacer n'en fait pas partie :
+ * l'écran efface par `useEraser`, qui fait d'abord partir le pas en attente.
+ */
+export type ObjectiveGestures = Omit<ObjectiveCommands, 'deleteTask' | 'deleteObjective'>;
+
+export function useObjectiveCommands(): ObjectiveGestures {
   return useServices().objectives.commands;
 }
 
-/** Le pas effacé le temps de sa trace (ou null), et de quoi effacer un pas, le remettre ou le laisser partir. */
-export function useTaskTrace(): { readonly erasing: string | null; readonly trace: TaskTrace } {
-  const { trace } = useServices().objectives;
-  const erasing = useSyncExternalStore(trace.erasing$.subscribe, () => trace.erasing$.get());
-  return { erasing, trace };
+/** Le pas en attente, dont la trace est à l'écran (ou null), et de quoi effacer, remettre ou laisser partir. */
+export function useEraser(): { readonly erasing: string | null; readonly eraser: Eraser } {
+  const { eraser } = useServices().objectives;
+  const erasing = useSyncExternalStore(eraser.erasing$.subscribe, () => eraser.erasing$.get());
+  return { erasing, eraser };
 }

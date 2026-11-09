@@ -8,8 +8,8 @@ import {
   useObjectiveCommands,
   useObjectives,
   useStageOptions,
+  useEraser,
   useTaskItem,
-  useTaskTrace,
 } from '@/state/objectives';
 import { GoneSheet, LoadingSheet, SheetActions, useCloseSheet } from './sheet-frame';
 import { SHEETS_TEXTS } from './sheets.texts';
@@ -57,7 +57,7 @@ function EditTaskForm({
   const styles = useStyles();
   const close = useCloseSheet();
   const commands = useObjectiveCommands();
-  const { trace } = useTaskTrace();
+  const { eraser } = useEraser();
   const stages = useStageOptions(rootId);
   const [initial] = useState(task);
   // L'étape affichée n'est gardée que si elle est bien une étape de cet objectif.
@@ -69,21 +69,20 @@ function EditTaskForm({
   }));
   const [submitted, setSubmitted] = useState(false);
   const errors = submitted ? validateTaskEdit(form) : {};
-  // Effacé d'ici : la feuille partie, la trace du pas prend sa place dans l'arête, et le lecteur d'écran s'y pose,
-  // sur « Remettre ». Si rien dessous ne montre ce pas (une feuille ouverte par un lien), rien ne montrerait sa trace,
-  // ni ne la finirait : le pas part tout de suite.
-  const erased = useRef<'trace' | 'now' | null>(null);
+  // Effacé d'ici, il part une fois la feuille partie : sa trace prend sa place dans l'arête, et le lecteur d'écran s'y
+  // pose, sur « Remettre ». Si rien dessous ne montre ce pas (une feuille ouverte par un lien), l'`Eraser` le fait
+  // partir tout de suite.
+  const erased = useRef(false);
   useEffect(() => {
     const leaving = erased;
     return () => {
-      if (leaving.current === 'trace') trace.start(initial.id);
+      if (leaving.current) void eraser.eraseStep(initial.id);
     };
-  }, [trace, initial.id]);
+  }, [eraser, initial.id]);
 
   const erase = () => {
     if (erased.current) return;
-    erased.current = trace.canShow(initial.id) ? 'trace' : 'now';
-    if (erased.current === 'now') void commands.deleteTask(initial.id);
+    erased.current = true;
     close();
   };
 

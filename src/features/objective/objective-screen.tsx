@@ -18,7 +18,7 @@ import {
   creerStyles,
   libelleEffacer,
 } from '@empreinte-studio/react-native';
-import type { TaskTrace } from '@/application/objectives/task-trace';
+import type { Eraser } from '@/application/objectives/eraser';
 import { TITRES_QUADRANTS } from '@/domain/objectives/eisenhower';
 import {
   foldedDoneStageId,
@@ -32,7 +32,7 @@ import {
 import { isTemporaryId } from '@/domain/objectives/snapshot';
 import { CRUMB_TITLE_MAX, shortTitle } from '@/domain/shared/titles';
 import { useAnnouncements, useReport } from '@/state/announcements';
-import { useObjectiveCommands, useObjectiveDetail, useTaskTrace } from '@/state/objectives';
+import { useEraser, useObjectiveCommands, useObjectiveDetail } from '@/state/objectives';
 import { useToday } from '@/state/today';
 import { Ecran, amenerALEcran } from '@/ui/ecran';
 import { EnTete } from '@/ui/en-tete';
@@ -276,7 +276,7 @@ export function ObjectiveScreen({ objectiveId }: { readonly objectiveId: string 
   const { report } = useReport();
   // Suivie ici, avec les objectifs : quand la trace change, l'arête relit aussi la copie, et le pas qui part pour de
   // bon ne réapparaît pas le temps que la copie prévienne.
-  const { erasing, trace } = useTaskTrace();
+  const { erasing, eraser } = useEraser();
   const scroller = useRef<ScrollViewInstance | null>(null);
 
   // Tant qu'une feuille la couvre, ou qu'on la quitte, l'arête garde ce qu'elle montrait : l'objectif effacé depuis
@@ -297,7 +297,7 @@ export function ObjectiveScreen({ objectiveId }: { readonly objectiveId: string 
           detail={detail}
           hasReport={!!report}
           erasing={erasing}
-          trace={trace}
+          eraser={eraser}
           scroller={scroller}
         />
       ) : (
@@ -324,14 +324,14 @@ function ObjectiveContent({
   detail,
   hasReport,
   erasing,
-  trace,
+  eraser,
   scroller,
 }: {
   readonly detail: ObjectiveDetail;
   readonly hasReport: boolean;
   /** Le pas dont la trace est à l'écran. */
   readonly erasing: string | null;
-  readonly trace: TaskTrace;
+  readonly eraser: Eraser;
   readonly scroller: RefObject<ScrollViewInstance | null>;
 }) {
   const styles = useStyles();
@@ -352,7 +352,7 @@ function ObjectiveContent({
   const shownTaskIds = [...(stage?.tasks ?? []), ...detail.tasksWithoutStage]
     .map((task) => task.id)
     .join('\n');
-  useEffect(() => trace.showing(shownTaskIds ? shownTaskIds.split('\n') : []), [trace, shownTaskIds]);
+  useEffect(() => eraser.showing(shownTaskIds ? shownTaskIds.split('\n') : []), [eraser, shownTaskIds]);
 
   // Le pas remis à sa place par sa trace : le lecteur d'écran s'y repose quand il revient.
   const [restored, setRestored] = useState<string | null>(null);
@@ -361,13 +361,13 @@ function ObjectiveContent({
     restored,
     onErase: (task) => {
       setRestored(null);
-      trace.start(task.id);
+      void eraser.eraseStep(task.id);
     },
     onPutBack: (task) => {
       setRestored(task.id);
-      trace.putBack(task.id);
+      eraser.putBack(task.id);
     },
-    onGone: (task) => trace.expire(task.id),
+    onGone: (task) => eraser.expire(task.id),
   };
 
   const toggle = (taskId: string, done: boolean) => void commands.setTaskDone(taskId, done);
