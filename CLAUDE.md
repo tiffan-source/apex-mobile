@@ -44,7 +44,8 @@ Layers in `src/`, enforced by `no-restricted-imports` in `eslint.config.js`:
   Akari conversation, voice, dates, typography). No React, Expo, TanStack Query or Empreinte rendering
   (`@empreinte-studio/noyau` only).
 - `application/` — services and ports: `SessionManager`, `ObjectiveCommands` (optimistic gestures),
-  `WriteQueue`, `ObjectivesLoader`, `AkariWritesWatcher`, `AnnouncementCenter`; ports in `ports/`.
+  `Eraser` (erasing and the step trace), `WriteQueue`, `ObjectivesLoader`, `AkariWritesWatcher`,
+  `AnnouncementCenter`; ports in `ports/`.
 - `infrastructure/` — adapters: `openapi-fetch` client with token refresh and one replay on `401`,
   `http-*-gateway.ts`, `expo-secure-store` token store, AsyncStorage preferences, screen-reader announcer.
 - `state/` — TanStack Query (keys carry the user id), hooks over the services, theme, current day.
@@ -63,14 +64,15 @@ commands (`rename`, `clarify`, `set-deadline`, `reprioritize`, `move`, `complete
 the entity each returns becomes the server-accepted state. No re-read after an accepted gesture; the tree is read
 on first load, pull-to-refresh, return to foreground, after an Akari write and after a refused erase.
 
-Erasing has three weights (mockup « Effacer », Empreinte 0.6): a step is swiped away (`EGlissable`, or « Effacer
-ce pas » at the foot of its sheet) and its trace (`ETrace`, « Remettre ») takes its place — `TaskTrace` keeps it,
-one at a time, and erases it for good when the trace ends; a stage goes after an alert sheet
-(`/etapes/:id/effacer`); an objective from the foot of « Modifier l'objectif », its name rewritten
-(`/objectifs/:id/effacer`). Any new erase first erases the waiting step for good. `deleteTask`/`deleteObjective`
-remove at once what depends on the element, put it back as the server has it if refused (handing it to its parent's
-pending erase when there is one) then re-read (the only re-read a gesture asks for), and treat « not found » as
-already erased. No « Laisser filer » until Apex Brain has it.
+Erasing has three weights (mockup « Effacer », Empreinte 0.6): a step is swiped away (`EGlissable`, or « Effacer ce
+pas » at the foot of its sheet) and its trace (`ETrace`, « Remettre ») takes its place — the waiting step, one at a
+time, erased for good when the trace ends; a stage goes after an alert sheet (`/etapes/:id/effacer`); an objective
+from the foot of « Modifier l'objectif », its name rewritten (`/objectifs/:id/effacer`). Screens erase only through
+`Eraser` (`useEraser`), which holds the rule: any new erase first erases the waiting step for good, and a step the
+arête doesn't show goes at once. `useObjectiveCommands` hides `deleteTask`/`deleteObjective`, which only `Eraser`
+calls: they remove at once what depends on the element, put it back as the server has it if refused (handing it to
+its parent's pending erase when there is one) then re-read (the only re-read a gesture asks for), and treat « not
+found » as already erased. No « Laisser filer » until Apex Brain has it.
 
 Reads go through TanStack Query (one flat snapshot of objectives per user); **writes never use
 `useMutation`**: they go through `ObjectiveCommands` → `WriteQueue`, as in the web client's stores — one

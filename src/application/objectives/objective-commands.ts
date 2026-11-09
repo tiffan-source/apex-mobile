@@ -73,7 +73,7 @@ const accepted = <T>(sent: Sent<T>): sent is { readonly success: true; readonly 
  * Un effacement en route : ce qu'il a retiré de l'écran (et ce que des effacements refusés lui ont confié), puis ce
  * qu'il en est advenu — parti, revenu à sa place, confié à l'effacement de son parent, ou sans place où revenir.
  */
-type Erasure = {
+type PendingErase = {
   readonly objectives: Removed<Objective>[];
   readonly tasks: Removed<Task>[];
   outcome: 'gone' | 'restored' | 'handed' | 'dropped';
@@ -88,7 +88,7 @@ export class ObjectiveCommands {
   private readonly tasks = new PendingChanges<Task>();
   private readonly objectives = new PendingChanges<Objective>();
   /** Les effacements en route, avec ce qu'ils ont retiré de l'écran. */
-  private readonly erasures = new Set<Erasure>();
+  private readonly erasures = new Set<PendingErase>();
 
   constructor(private readonly deps: ObjectiveCommandsDeps) {}
 
@@ -294,7 +294,7 @@ export class ObjectiveCommands {
   }
 
   /**
-   * Efface un pas, pour de bon : il part de l'écran tout de suite, puis de la base. Sa trace (`TaskTrace`) a déjà dit
+   * Efface un pas, pour de bon : il part de l'écran tout de suite, puis de la base. Sa trace (`Eraser`) a déjà dit
    * qu'il partait : la réussite ne s'annonce pas. Un pas qui n'est plus là (déjà effacé, parti avec son étape) est
    * ignoré : l'effacement peut être demandé plusieurs fois pour le même pas.
    */
@@ -461,10 +461,10 @@ export class ObjectiveCommands {
   }
 
   /** Un effacement commence : ce qu'il retire est un geste en route sur chacun de ces éléments. */
-  private beginErasing(removed: RemovedItems): Erasure {
+  private beginErasing(removed: RemovedItems): PendingErase {
     for (const { item } of removed.objectives) this.objectives.begin(item.id, item);
     for (const { item } of removed.tasks) this.tasks.begin(item.id, item);
-    const erasure: Erasure = {
+    const erasure: PendingErase = {
       objectives: [...removed.objectives],
       tasks: [...removed.tasks],
       outcome: 'gone',
@@ -479,7 +479,7 @@ export class ObjectiveCommands {
    * dont la création n'a pas abouti entre-temps. Si son parent attend lui-même d'être effacé (une étape effacée
    * pendant qu'un de ses pas partait), ce qui revient lui est confié : il reviendra avec lui, ou partira avec lui.
    */
-  private settleErased(erasure: Erasure, refused: boolean): void {
+  private settleErased(erasure: PendingErase, refused: boolean): void {
     const { cache, writes } = this.deps;
     this.erasures.delete(erasure);
     const back: { objectives: Removed<Objective>[]; tasks: Removed<Task>[] } = { objectives: [], tasks: [] };
@@ -517,7 +517,7 @@ export class ObjectiveCommands {
   }
 
   /** L'effacement en route qui emporte l'un de ces objectifs (ou étapes), s'il y en a un. */
-  private pendingErasureOf(objectiveIds: readonly string[]): Erasure | undefined {
+  private pendingErasureOf(objectiveIds: readonly string[]): PendingErase | undefined {
     const { writes } = this.deps;
     const wanted = new Set(objectiveIds.map((id) => writes.resolve(id)));
     if (wanted.size === 0) return undefined;
@@ -535,7 +535,7 @@ export class ObjectiveCommands {
    */
   private tellErased<T>(
     sent: Sent<T> | typeof CLOSED,
-    erasure: Erasure,
+    erasure: PendingErase,
     action: FailedAction,
     success?: string,
   ): void {

@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { EFeuilleConfirmation } from '@empreinte-studio/react-native';
 import { objectiveErasure, type ObjectiveErasure } from '@/domain/objectives/erasure';
-import { useObjectiveCommands, useObjectives, useTaskTrace } from '@/state/objectives';
+import { useEraser, useObjectives } from '@/state/objectives';
 import { routes } from '../shell/routes';
 import { GoneSheet, LoadingSheet, useCloseSheet } from './sheet-frame';
 import { SHEETS_TEXTS } from './sheets.texts';
@@ -17,7 +17,7 @@ const T = SHEETS_TEXTS.eraseObjective;
  */
 export function EraseObjectiveSheet({ objectiveId }: { readonly objectiveId: string }) {
   const { snapshot, loaded } = useObjectives();
-  const { erasing } = useTaskTrace();
+  const { erasing } = useEraser();
   const erasure = useMemo(
     () => objectiveErasure(objectiveId, snapshot.objectives, snapshot.tasks, erasing),
     [objectiveId, snapshot, erasing],
@@ -40,18 +40,16 @@ function EraseObjectiveConfirmation({
 }) {
   const router = useRouter();
   const close = useCloseSheet();
-  const commands = useObjectiveCommands();
-  const { trace } = useTaskTrace();
+  const { eraser } = useEraser();
   const [erased, setErased] = useState(false);
 
-  // Retour à ses objectifs, où il n'est plus. L'arête qu'on quitte le garde le temps de partir. Le pas dont la trace
-  // attendait part d'abord, pour de bon : il ne reviendra pas avec l'objectif si celui-ci revient.
+  // Retour à ses objectifs, où il n'est plus. L'arête qu'on quitte le garde le temps de partir. L'`Eraser` fait d'abord
+  // partir le pas en attente, pour de bon : il ne reviendra pas avec l'objectif si celui-ci revient.
   const erase = () => {
     if (erased) return;
     setErased(true);
     router.dismissTo(routes.home);
-    trace.flush();
-    void commands.deleteObjective(objectiveId);
+    void eraser.eraseObjective(objectiveId);
   };
 
   return (
